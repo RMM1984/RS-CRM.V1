@@ -1,0 +1,38 @@
+import cors from 'cors'
+import express from 'express'
+import { env } from './config/env'
+import { errorHandler } from './middleware/errorHandler'
+import { setSchema } from './middleware/setSchema'
+import { verifyJWT } from './middleware/verifyJWT'
+import { adminRoutes } from './routes/admin.routes'
+import { aiRoutes } from './routes/ai.routes'
+import { authRoutes } from './routes/auth.routes'
+import { contactsRoutes } from './routes/contacts.routes'
+import { dashboardRoutes } from './routes/dashboard.routes'
+import { operationsRoutes } from './routes/operations.routes'
+import { propertiesRoutes } from './routes/properties.routes'
+import { usersRoutes } from './routes/users.routes'
+import { visitsRoutes } from './routes/visits.routes'
+
+export const app = express()
+
+app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+app.use(express.json({ limit: '1mb' }))
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, service: 'rs-crm-backend' })
+})
+
+app.use('/api/auth', authRoutes)
+
+app.use('/api', verifyJWT, setSchema)
+app.use('/api/users', usersRoutes)
+app.use('/api/contacts', contactsRoutes)
+app.use('/api/properties', propertiesRoutes)
+app.use('/api/operations', operationsRoutes)
+app.use('/api/visits', visitsRoutes)
+app.use('/api/dashboard', dashboardRoutes)
+app.use('/api/ai', aiRoutes)
+app.use('/api/admin', adminRoutes)
+
+app.use(errorHandler)
