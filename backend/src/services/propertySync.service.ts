@@ -26,6 +26,7 @@ export type ExternalProperty = {
   image_url: string
   images?: Array<{ url: string }>
   surface_m2: number | null
+  plot_m2?: number | null
   rooms: number | null
   bathrooms: number | null
   description?: string

@@ -312,8 +312,16 @@ export default function PropertiesPage() {
       : (searchResult ? searchResult.external : localExternalProperties).filter((property) =>
           externalMatchesFilters(property, filters)
         )
-  const total = searchResult ? internalProperties.length + externalProperties.length : propertiesQuery.data?.total ?? 0
+  const crownProperties = externalProperties.filter((property) => property.source === 'crown_property')
+  const agencyProperties = externalProperties.filter((property) => property.source !== 'crown_property')
+  const exclusiveCount = internalProperties.length + crownProperties.length
+  const total = searchResult ? exclusiveCount + agencyProperties.length : propertiesQuery.data?.total ?? 0
   const selectedProperty = propertyQuery.data
+
+  const openExternalDetail = (property: ExternalProperty) => {
+    window.sessionStorage.setItem(`property-detail:${property.id}`, JSON.stringify(property))
+    router.push(`/properties/${property.id}`)
+  }
 
   const buildSearchQuery = useCallback(() => {
     const terms = [query.trim()]
@@ -601,23 +609,40 @@ export default function PropertiesPage() {
 
       {!propertiesQuery.isLoading ? (
         <>
-          <SectionTitle count={internalProperties.length} label="EXCLUSIVAS" tone="green" />
-          <PropertyCollection
-            onArchive={(property) => deleteProperty.mutate(property.id)}
-            onEdit={(property) => {
-              setPropertyModal(property)
-              setIsPropertyModalOpen(true)
-            }}
-            onSave={(property) => setShortlistTarget(property)}
-            onView={(property) => setSelectedPropertyId(property.id)}
-            properties={internalProperties}
-            view={view}
-          />
+          <SectionTitle count={exclusiveCount} label="EXCLUSIVAS" tone="green" />
+          {exclusiveCount ? (
+            <>
+              {internalProperties.length ? (
+                <PropertyCollection
+                  onArchive={(property) => deleteProperty.mutate(property.id)}
+                  onEdit={(property) => {
+                    setPropertyModal(property)
+                    setIsPropertyModalOpen(true)
+                  }}
+                  onSave={(property) => setShortlistTarget(property)}
+                  onView={(property) => router.push(`/properties/${property.id}`)}
+                  properties={internalProperties}
+                  view={view}
+                />
+              ) : null}
+              {crownProperties.length ? (
+                <ExternalExclusiveCollection
+                  onSave={(property) => setShortlistTarget(property)}
+                  onView={openExternalDetail}
+                  properties={crownProperties}
+                  view={view}
+                />
+              ) : null}
+            </>
+          ) : (
+            <EmptyState text="No hay exclusivas con estos filtros." />
+          )}
 
-          <SectionTitle count={externalProperties.length} label="AGENCIAS" tone="blue" />
+          <SectionTitle count={agencyProperties.length} label="AGENCIAS" tone="blue" />
           <ExternalCollection
             onSave={(property) => setShortlistTarget(property)}
-            properties={externalProperties}
+            onView={openExternalDetail}
+            properties={agencyProperties}
             view={view}
           />
         </>
@@ -837,10 +862,12 @@ const PropertyCollection = ({
 
 const ExternalCollection = ({
   onSave,
+  onView,
   properties,
   view
 }: {
   onSave: (property: ExternalProperty) => void
+  onView: (property: ExternalProperty) => void
   properties: ExternalProperty[]
   view: 'grid' | 'list'
 }) => {
@@ -851,11 +878,29 @@ const ExternalCollection = ({
   return (
     <div className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
       {properties.map((property) => (
-        <ExternalCard key={property.id} onSave={() => onSave(property)} property={property} />
+        <ExternalCard key={property.id} onSave={() => onSave(property)} onView={() => onView(property)} property={property} />
       ))}
     </div>
   )
 }
+
+const ExternalExclusiveCollection = ({
+  onSave,
+  onView,
+  properties,
+  view
+}: {
+  onSave: (property: ExternalProperty) => void
+  onView: (property: ExternalProperty) => void
+  properties: ExternalProperty[]
+  view: 'grid' | 'list'
+}) => (
+  <div className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
+    {properties.map((property) => (
+      <ExternalExclusiveCard key={property.id} onSave={() => onSave(property)} onView={() => onView(property)} property={property} />
+    ))}
+  </div>
+)
 
 const PropertyCard = ({
   onArchive,
@@ -907,7 +952,44 @@ const PropertyCard = ({
   </Card>
 )
 
-const ExternalCard = ({ onSave, property }: { onSave: () => void; property: ExternalProperty }) => {
+const ExternalExclusiveCard = ({ onSave, onView, property }: { onSave: () => void; onView: () => void; property: ExternalProperty }) => {
+  const imageUrl = property.image_url || property.images?.[0]?.url
+
+  return (
+    <Card className="flex h-full flex-col overflow-hidden">
+      <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
+        {imageUrl ? (
+          <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
+        ) : (
+          <div className="grid h-16 w-16 place-items-center rounded-full bg-slate-900 text-lg font-bold text-white">
+            {initials(property.title)}
+          </div>
+        )}
+        <Badge className="absolute left-3 top-3 bg-emerald-600 text-white shadow-sm">EXCLUSIVA</Badge>
+      </div>
+      <div className="flex flex-1 flex-col gap-3 bg-card p-4">
+        <div className="min-h-[68px]">
+          <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
+          <p className="text-sm text-muted-foreground">{property.city}</p>
+        </div>
+        <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
+        <FeatureRow property={property} />
+        <p className="text-xs text-muted-foreground">Agente: Crown Property Jávea</p>
+        <div className="mt-auto grid grid-cols-2 gap-2">
+          <Button onClick={onView} variant="outline">
+            Ver detalle
+          </Button>
+          <Button className="gap-2" onClick={onSave}>
+            <Save className="h-4 w-4" />
+            Guardar
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView: () => void; property: ExternalProperty }) => {
   const imageUrl = property.image_url || property.images?.[0]?.url
 
   return (
@@ -930,10 +1012,8 @@ const ExternalCard = ({ onSave, property }: { onSave: () => void; property: Exte
         <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
         <FeatureRow property={property} />
         <div className="mt-auto grid grid-cols-2 gap-2">
-          <Button asChild variant="outline">
-            <a href={property.source_url} rel="noreferrer" target="_blank">
-              Ver detalle
-            </a>
+          <Button onClick={onView} variant="outline">
+            Ver detalle
           </Button>
           <Button className="gap-2" onClick={onSave}>
             <Save className="h-4 w-4" />

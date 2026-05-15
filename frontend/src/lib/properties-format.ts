@@ -14,6 +14,7 @@ export const formatPropertySource = (source?: string | null) => {
 export const formatPropertyPrice = (price: number | string, operation?: string | null) => {
   const value = Number(price)
   const formatted = new Intl.NumberFormat('es-ES').format(Number.isFinite(value) ? value : 0)
+  const euro = '\u20ac'
 
-  return operation === 'rent' ? `€ ${formatted}/mes` : `€ ${formatted}`
+  return operation === 'rent' ? `${euro} ${formatted}/mes` : `${euro} ${formatted}`
 }
