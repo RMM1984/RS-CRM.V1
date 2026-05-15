@@ -51,6 +51,7 @@ const propertySelect = `
   operation,
   price,
   sqm AS surface_m2,
+  plot_m2,
   bedrooms AS rooms,
   bathrooms,
   status,
@@ -60,6 +61,8 @@ const propertySelect = `
   source_url,
   source_agency_name,
   source_agency_phone,
+  external_ref,
+  external_badge,
   created_at,
   updated_at
 `
@@ -69,18 +72,21 @@ export const ensurePropertiesModuleSchema = async (db: PoolClient) => {
     ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_status_check;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS zip TEXT;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS operation TEXT NOT NULL DEFAULT 'sale';
+    ALTER TABLE properties ADD COLUMN IF NOT EXISTS plot_m2 NUMERIC;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS description TEXT;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS assigned_to UUID;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'internal';
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS source_url TEXT;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS source_agency_name TEXT;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS source_agency_phone TEXT;
+    ALTER TABLE properties ADD COLUMN IF NOT EXISTS external_ref TEXT;
+    ALTER TABLE properties ADD COLUMN IF NOT EXISTS external_badge TEXT;
     ALTER TABLE properties ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE properties ADD CONSTRAINT properties_status_check
-      CHECK (status IN ('draft', 'active', 'reserved', 'sold', 'rented', 'archived'));
+      CHECK (status IN ('draft', 'active', 'available', 'reserved', 'sold', 'rented', 'archived'));
     ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_source_check;
     ALTER TABLE properties ADD CONSTRAINT properties_source_check
-      CHECK (source IN ('internal', 'kyero', 'sooprema', 'other'));
+      CHECK (source IN ('internal', 'kyero', 'sooprema', 'crown_property', 'other'));
 
     CREATE TABLE IF NOT EXISTS property_images (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

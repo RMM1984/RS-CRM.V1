@@ -7,9 +7,9 @@ const idSchema = z.string().uuid()
 const listQuerySchema = z.object({
   type: z.string().trim().optional(),
   operation: z.enum(['sale', 'rent']).optional(),
-  status: z.enum(['draft', 'active', 'reserved', 'sold', 'rented', 'archived']).optional(),
+  status: z.enum(['draft', 'active', 'available', 'reserved', 'sold', 'rented', 'archived']).optional(),
   city: z.string().trim().optional(),
-  source: z.enum(['internal', 'kyero', 'sooprema', 'other', 'all']).optional(),
+  source: z.enum(['internal', 'kyero', 'sooprema', 'crown_property', 'other', 'all']).optional(),
   search: z.string().trim().optional(),
   price_min: z.coerce.number().nonnegative().optional(),
   price_max: z.coerce.number().nonnegative().optional(),
@@ -29,7 +29,7 @@ const propertySchema = z.object({
   surface_m2: z.coerce.number().nonnegative().optional().nullable(),
   rooms: z.coerce.number().int().nonnegative().optional().nullable(),
   bathrooms: z.coerce.number().int().nonnegative().optional().nullable(),
-  status: z.enum(['draft', 'active', 'reserved', 'sold', 'rented']).default('active'),
+  status: z.enum(['draft', 'active', 'available', 'reserved', 'sold', 'rented']).default('active'),
   description: z.string().trim().optional().nullable(),
   assigned_to: z.string().uuid().optional().nullable()
 })

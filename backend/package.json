@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "jest",
     "migrate:tenant": "tsx src/db/migrate.ts",
-    "seed:admin": "tsx src/db/seedAdmin.ts"
+    "seed:admin": "tsx src/db/seedAdmin.ts",
+    "seed:crown": "ts-node src/scripts/seed-crown-properties.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",
@@ -32,6 +33,7 @@
     "@types/pg": "^8.15.6",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

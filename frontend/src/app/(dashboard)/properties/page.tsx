@@ -58,7 +58,7 @@ const propertySchema = z.object({
   surface_m2: z.coerce.number().nonnegative().optional().or(z.literal('')),
   rooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   bathrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
-  status: z.enum(['draft', 'active', 'reserved', 'sold', 'rented']),
+  status: z.enum(['draft', 'active', 'available', 'reserved', 'sold', 'rented']),
   description: z.string().trim().optional(),
   assigned_to: z.string().trim().optional()
 })
@@ -90,6 +90,7 @@ const emptyProperty: PropertyForm = {
 const statusLabels: Record<PropertyStatus, string> = {
   draft: 'borrador',
   active: 'activa',
+  available: 'disponible',
   reserved: 'reservada',
   sold: 'vendida',
   rented: 'alquilada',
@@ -106,6 +107,7 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   internal: 'exclusivas',
   kyero: 'Kyero',
   sooprema: 'Sooprema',
+  crown_property: 'Crown Property',
   other: 'agencias'
 }
 
@@ -405,6 +407,7 @@ export default function PropertiesPage() {
             options={[
               ['all', 'Todas'],
               ['internal', 'Exclusivas'],
+              ['crown_property', 'Crown Property'],
               ['kyero', 'Kyero'],
               ['sooprema', 'Sooprema'],
               ['other', 'Agencias']
@@ -812,6 +815,7 @@ const PropertyModal = ({
           <Field label="Estado">
             <select className="h-10 rounded-md border bg-background px-3 text-sm" {...form.register('status')}>
               <option value="active">Activa</option>
+              <option value="available">Disponible</option>
               <option value="reserved">Reservada</option>
               <option value="sold">Vendida</option>
               <option value="rented">Alquilada</option>
