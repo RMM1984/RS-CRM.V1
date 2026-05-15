@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import type { PoolClient } from 'pg'
+import { env } from '../config/env'
 import type { AuthUser } from '../types/express'
 import { PropertySyncService, type ExternalProperty, type SearchParams } from './propertySync.service'
 
@@ -232,9 +233,30 @@ export const deleteProperty = async (db: PoolClient, id: string) => {
 
 export const addPropertyImage = async (db: PoolClient, id: string, file?: Express.Multer.File, user?: AuthUser) => {
   await ensurePropertiesModuleSchema(db)
-  const filename = file?.originalname ?? `image-${Date.now()}.jpg`
+  const filename = `${Date.now()}-${file?.originalname ?? 'image.jpg'}`
   const path = `${user?.tenant_slug ?? 'tenant'}/${id}/${filename}`
-  const url = `/storage/${path}`
+  let url = `/storage/property-images/${path}`
+
+  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY && file) {
+    const storageUrl = `${env.SUPABASE_URL}/storage/v1/object/property-images/${path}`
+    const response = await fetch(storageUrl, {
+      method: 'POST',
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': file.mimetype,
+        'x-upsert': 'true'
+      },
+      body: file.buffer as unknown as BodyInit
+    })
+
+    if (!response.ok) {
+      throw new Error(`Supabase Storage upload failed: ${await response.text()}`)
+    }
+
+    url = `${env.SUPABASE_URL}/storage/v1/object/public/property-images/${path}`
+  }
+
   const { rows } = await db.query(
     'INSERT INTO property_images (property_id, url, path) VALUES ($1,$2,$3) RETURNING id, url, path, created_at',
     [id, url, path]
