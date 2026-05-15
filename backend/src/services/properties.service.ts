@@ -41,6 +41,12 @@ export type ShortlistInput = {
   notes?: string | null
 }
 
+type UploadedFile = {
+  originalname: string
+  mimetype: string
+  buffer: Buffer
+}
+
 const propertySelect = `
   id,
   title,
@@ -249,7 +255,7 @@ export const deleteProperty = async (db: PoolClient, id: string) => {
   return rows[0]
 }
 
-export const addPropertyImage = async (db: PoolClient, id: string, file?: Express.Multer.File, user?: AuthUser) => {
+export const addPropertyImage = async (db: PoolClient, id: string, file?: UploadedFile, user?: AuthUser) => {
   await ensurePropertiesModuleSchema(db)
   const filename = `${Date.now()}-${file?.originalname ?? 'image.jpg'}`
   const path = `${user?.tenant_slug ?? 'tenant'}/${id}/${filename}`
@@ -287,39 +293,297 @@ export const deletePropertyImage = async (db: PoolClient, imageId: string) => {
   return rows[0] ?? null
 }
 
-export const parseSearchQuery = (query: string): SearchParams => {
-  const text = query.toLowerCase()
-  const numbers = [...text.matchAll(/\d+[.,]?\d*\s*k?/g)].map((match) => match[0])
-  const price = numbers
-    .map((value) => value.includes('k') ? Number(value.replace(/\D/g, '')) * 1000 : Number(value.replace(/\D/g, '')))
-    .find((value) => value > 1000)
-  const rooms = text.match(/(\d+)\s*(hab|habitaciones|dormitorios)/)?.[1]
-  const type = ['piso', 'chalet', 'villa', 'apartamento', 'local'].find((word) => text.includes(word))
-  const operation = text.includes('alquiler') || text.includes('renta') ? 'rent' : text.includes('compra') || text.includes('venta') ? 'sale' : undefined
-  const knownCities = ['javea', 'xabia', 'denia', 'moraira', 'calpe', 'madrid', 'valencia']
-  const city = knownCities.find((word) => text.includes(word))
-  const features = text
-    .split(/\s+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''))
-    .filter((word) => word.length > 3 && ![type, operation, city, 'menos', 'vistas', 'habitaciones'].includes(word))
+type KeywordDictionary = Record<string, Record<string, string[]>>
 
-  return { type, operation, city, price_max: price, rooms_min: rooms ? Number(rooms) : undefined, features }
+const propertyTypeKeywords: KeywordDictionary = {
+  apartment: {
+    es: ['piso', 'apartamento', 'apto', 'estudio', 'bajo'],
+    en: ['apartment', 'flat', 'studio'],
+    de: ['wohnung', 'apartment', 'studio'],
+    nl: ['appartement', 'flat', 'studio'],
+    fr: ['appartement', 'studio', 'flat']
+  },
+  house: {
+    es: ['chalet', 'villa', 'casa', 'finca', 'adosado', 'unifamiliar'],
+    en: ['house', 'villa', 'chalet', 'cottage', 'townhouse', 'detached'],
+    de: ['haus', 'villa', 'chalet', 'ferienhaus', 'landhaus'],
+    nl: ['huis', 'villa', 'chalet', 'woning', 'boerderij'],
+    fr: ['maison', 'villa', 'chalet', 'pavillon', 'mas']
+  },
+  commercial: {
+    es: ['local', 'comercial', 'oficina', 'negocio'],
+    en: ['commercial', 'office', 'shop', 'business', 'retail'],
+    de: ['gewerbe', 'buro', 'laden', 'geschaft'],
+    nl: ['bedrijf', 'kantoor', 'winkel', 'commercieel'],
+    fr: ['commerce', 'bureau', 'local', 'boutique']
+  },
+  land: {
+    es: ['parcela', 'terreno', 'solar', 'finca rustica'],
+    en: ['land', 'plot', 'terrain', 'field'],
+    de: ['grundstuck', 'land', 'parzelle'],
+    nl: ['grond', 'perceel', 'kavel'],
+    fr: ['terrain', 'parcelle', 'fonds']
+  },
+  garage: {
+    es: ['garaje', 'parking', 'plaza'],
+    en: ['garage', 'parking'],
+    de: ['garage', 'parkplatz', 'stellplatz'],
+    nl: ['garage', 'parkeerplaats'],
+    fr: ['garage', 'parking', 'place']
+  }
+}
+
+const operationKeywords: KeywordDictionary = {
+  sale: {
+    es: ['venta', 'vender', 'compra', 'comprar', 'adquirir'],
+    en: ['sale', 'buy', 'purchase', 'buying', 'for sale'],
+    de: ['kauf', 'kaufen', 'erwerb', 'zu verkaufen'],
+    nl: ['koop', 'kopen', 'te koop', 'aankoop'],
+    fr: ['vente', 'achat', 'acheter', 'a vendre']
+  },
+  rent: {
+    es: ['alquiler', 'alquilar', 'arrendar', 'renta', 'arrendamiento'],
+    en: ['rent', 'rental', 'lease', 'letting', 'to rent'],
+    de: ['miete', 'mieten', 'vermietung', 'zu mieten'],
+    nl: ['huur', 'huren', 'verhuur', 'te huur'],
+    fr: ['location', 'louer', 'bail', 'a louer']
+  }
+}
+
+const featureKeywords: KeywordDictionary = {
+  sea_view: {
+    es: ['mar', 'vista mar', 'vistas', 'playa', 'primera linea', 'marina'],
+    en: ['sea', 'sea view', 'ocean', 'beach', 'seafront', 'waterfront'],
+    de: ['meer', 'meerblick', 'strand', 'seeblick'],
+    nl: ['zee', 'zeezicht', 'strand', 'waterkant'],
+    fr: ['mer', 'vue mer', 'plage', 'bord de mer']
+  },
+  pool: {
+    es: ['piscina', 'alberca'],
+    en: ['pool', 'swimming pool'],
+    de: ['pool', 'schwimmbad'],
+    nl: ['zwembad', 'pool'],
+    fr: ['piscine', 'bassin']
+  },
+  garden: {
+    es: ['jardin', 'jardin privado', 'terraza', 'huerto'],
+    en: ['garden', 'terrace', 'yard', 'outdoor'],
+    de: ['garten', 'terrasse'],
+    nl: ['tuin', 'terras'],
+    fr: ['jardin', 'terrasse']
+  }
+}
+
+const numberWords: Record<string, number> = {
+  uno: 1,
+  one: 1,
+  eins: 1,
+  een: 1,
+  un: 1,
+  dos: 2,
+  two: 2,
+  zwei: 2,
+  twee: 2,
+  deux: 2,
+  tres: 3,
+  three: 3,
+  drei: 3,
+  drie: 3,
+  trois: 3,
+  cuatro: 4,
+  four: 4,
+  vier: 4,
+  quatre: 4,
+  cinco: 5,
+  five: 5,
+  funf: 5,
+  vijf: 5,
+  cinq: 5,
+  seis: 6,
+  six: 6,
+  sechs: 6,
+  zes: 6
+}
+
+const knownAreaTerms = ['javea', 'xabia', 'denia', 'moraira', 'calpe', 'benissa', 'arenal', 'montanar', 'pueblo']
+
+export const normalizeText = (text: string): string =>
+  text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+const includesTerm = (text: string, term: string) => {
+  const normalizedTerm = normalizeText(term)
+  return new RegExp(`(^|\\W)${escapeRegExp(normalizedTerm)}($|\\W)`, 'i').test(text)
+}
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const normalizedSql = (column: string) =>
+  `translate(lower(coalesce(${column}, '')), 'áàâäéèêëíìîïóòôöúùûüñ', 'aaaaeeeeiiiioooouuuun')`
+
+const findDictionaryMatch = (text: string, dictionary: KeywordDictionary) => {
+  for (const [value, languages] of Object.entries(dictionary)) {
+    for (const [language, terms] of Object.entries(languages)) {
+      const term = terms.find((candidate) => includesTerm(text, candidate))
+      if (term) {
+        return { value, language, term: normalizeText(term) }
+      }
+    }
+  }
+
+  return undefined
+}
+
+const findAllDictionaryMatches = (text: string, dictionary: KeywordDictionary) => {
+  const matches: Array<{ value: string; language: string; term: string }> = []
+
+  for (const [value, languages] of Object.entries(dictionary)) {
+    for (const [language, terms] of Object.entries(languages)) {
+      for (const term of terms) {
+        if (includesTerm(text, term)) {
+          matches.push({ value, language, term: normalizeText(term) })
+          break
+        }
+      }
+    }
+  }
+
+  return matches
+}
+
+const dictionaryTermsFor = (dictionary: KeywordDictionary, key: string) =>
+  Object.values(dictionary[key] ?? {})
+    .flat()
+    .map((term) => normalizeText(term))
+
+const detectRooms = (text: string) => {
+  const numeric = text.match(/(\d+)\s*(hab|habitacion|habitaciones|dormitorio|dormitorios|bed|bedroom|bedrooms|zimmer|slaap|slaapkamer|slaapkamers|chambre|chambres)/i)
+
+  if (numeric) {
+    return Number(numeric[1])
+  }
+
+  const roomWords = ['hab', 'habitacion', 'habitaciones', 'dormitorio', 'dormitorios', 'bed', 'bedroom', 'bedrooms', 'zimmer', 'slaap', 'slaapkamer', 'slaapkamers', 'chambre', 'chambres']
+  const tokens = text.split(/\s+/)
+
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    const value = numberWords[tokens[index]]
+    if (value && roomWords.some((word) => tokens[index + 1].startsWith(word))) {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+const toNumber = (raw: string) => {
+  const normalized = raw.replace(/\./g, '').replace(',', '.').replace(/\s/g, '')
+  const multiplier = normalized.toLowerCase().endsWith('k') ? 1000 : 1
+  return Number(normalized.replace(/[^\d.]/g, '')) * multiplier
+}
+
+const detectPriceMax = (text: string) => {
+  const constrained = text.match(
+    /(menos de|under|unter|minder dan|moins de|hasta|max|bis|tot|jusqu'?a)\s*(\d[\d.,\s]*\s*k?)/i
+  )
+
+  if (constrained) {
+    return toNumber(constrained[2])
+  }
+
+  return [...text.matchAll(/\d[\d.,\s]*\s*k?/g)]
+    .map((match) => toNumber(match[0]))
+    .find((value) => value > 1000)
+}
+
+export const parseSearchQuery = (query: string): SearchParams => {
+  const text = normalizeText(query)
+  const typeMatch = findDictionaryMatch(text, propertyTypeKeywords)
+  const operationMatch = findDictionaryMatch(text, operationKeywords)
+  const featureMatches = findAllDictionaryMatches(text, featureKeywords)
+  const rawTerms = knownAreaTerms.filter((term) => includesTerm(text, term))
+  const languageCandidates = [
+    typeMatch?.language,
+    operationMatch?.language,
+    ...featureMatches.map((match) => match.language)
+  ].filter(Boolean) as string[]
+  const languageDetected = languageCandidates[0] ?? 'unknown'
+
+  return {
+    type: typeMatch?.value,
+    operation: operationMatch?.value,
+    price_max: detectPriceMax(text),
+    rooms_min: detectRooms(text),
+    features: [...new Set(featureMatches.flatMap((match) => [match.value, match.term]))],
+    raw_terms: [...new Set(rawTerms)],
+    language_detected: languageDetected
+  }
 }
 
 export const searchProperties = async (db: PoolClient, query: string) => {
+  await ensurePropertiesModuleSchema(db)
   const keywords = parseSearchQuery(query)
-  const internal = await listProperties(db, {
-    type: keywords.type,
-    operation: keywords.operation,
-    city: keywords.city,
-    price_max: keywords.price_max,
-    rooms_min: keywords.rooms_min,
-    source: 'internal',
-    page: 1,
-    limit: 50
+  const clauses = ["active = true", "status <> 'archived'"]
+  const values: unknown[] = []
+
+  if (keywords.type && !keywords.raw_terms?.length) {
+    values.push(keywords.type)
+    clauses.push(`property_type = $${values.length}`)
+  }
+
+  if (keywords.operation) {
+    values.push(keywords.operation)
+    clauses.push(`(operation = $${values.length} OR operation = 'both')`)
+  }
+
+  if (keywords.price_max !== undefined) {
+    values.push(keywords.price_max)
+    clauses.push(`price <= $${values.length}`)
+  }
+
+  if (keywords.rooms_min !== undefined) {
+    values.push(keywords.rooms_min)
+    clauses.push(`bedrooms >= $${values.length}`)
+  }
+
+  if (keywords.features.length) {
+    const terms = [
+      ...new Set(
+        keywords.features.flatMap((term) =>
+          featureKeywords[term] ? dictionaryTermsFor(featureKeywords, term) : [normalizeText(term)]
+        )
+      )
+    ].filter((term) => term.length > 2 && !featureKeywords[term])
+
+    if (terms.length) {
+      const featureClauses = terms.map((term) => {
+        values.push(`%${term}%`)
+        return `(${normalizedSql('title')} ILIKE $${values.length} OR ${normalizedSql('description')} ILIKE $${values.length})`
+      })
+      clauses.push(`(${featureClauses.join(' OR ')})`)
+    }
+  }
+
+  keywords.raw_terms?.forEach((term) => {
+    values.push(`%${term}%`)
+    clauses.push(`(${normalizedSql('city')} ILIKE $${values.length} OR ${normalizedSql('address')} ILIKE $${values.length})`)
   })
+
+  const { rows } = await db.query(
+    `SELECT ${propertyListSelect}
+     FROM properties
+     WHERE ${clauses.join(' AND ')}
+     ORDER BY source = 'internal' DESC, created_at DESC
+     LIMIT 20`,
+    values
+  )
+  const internal = rows.filter((property) => property.source === 'internal')
+  const localExternal = rows.filter((property) => property.source !== 'internal')
   const external = await new PropertySyncService().searchExternal(keywords)
-  return { keywords, internal: internal.properties, external }
+
+  return { keywords, internal, external: [...localExternal, ...external] }
 }
 
 export const externalId = (property: ExternalProperty) =>
