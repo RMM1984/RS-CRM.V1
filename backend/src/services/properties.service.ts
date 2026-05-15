@@ -537,7 +537,6 @@ export const parseSearchQuery = (query: string): SearchParams => {
 }
 
 export const searchProperties = async (db: PoolClient, query: string) => {
-  await ensurePropertiesModuleSchema(db)
   const keywords = parseSearchQuery(query)
   const clauses = ["active = true", "status <> 'archived'"]
   const values: unknown[] = []
@@ -585,18 +584,25 @@ export const searchProperties = async (db: PoolClient, query: string) => {
     clauses.push(`(${normalizedSql('city')} ILIKE $${values.length} OR ${normalizedSql('address')} ILIKE $${values.length})`)
   })
 
-  const { rows } = await db.query(
-    `SELECT ${propertyListSelect}
-     FROM properties
-     WHERE ${clauses.join(' AND ')}
-     ORDER BY source = 'internal' DESC, created_at DESC
-     LIMIT 20`,
-    values
-  )
-  const internal = rows.filter((property) => property.source === 'internal')
   await getCrownProperties()
   const crownKeywords = parseCrownSearchQuery(query)
   const external = searchCrownProperties(query)
+  let internal: unknown[] = []
+
+  try {
+    await ensurePropertiesModuleSchema(db)
+    const { rows } = await db.query(
+      `SELECT ${propertyListSelect}
+       FROM properties
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY source = 'internal' DESC, created_at DESC
+       LIMIT 20`,
+      values
+    )
+    internal = rows.filter((property) => property.source === 'internal')
+  } catch (error) {
+    console.error('[PropertiesSearch] Internal DB search failed, returning Crown results only:', error)
+  }
 
   return { keywords: { ...keywords, ...crownKeywords }, internal, external, cache_age_minutes: getCrownCacheAgeMinutes() }
 }
