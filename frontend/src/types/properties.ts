@@ -51,10 +51,14 @@ export type ExternalProperty = {
   source_agency_phone?: string
   image_url?: string
   images?: PropertyImage[]
-  surface_m2?: number
-  rooms?: number
-  bathrooms?: number
+  surface_m2?: number | null
+  rooms?: number | null
+  bathrooms?: number | null
   description?: string
+  ref?: string
+  zone?: string
+  badge?: string | null
+  search_text?: string
 }
 
 export type PropertiesPageData = {
@@ -101,7 +105,9 @@ export type SearchKeywords = {
   operation?: PropertyOperation
   city?: string
   price_max?: number
+  surface_min?: number
   rooms_min?: number
+  terms?: string[]
   features: string[]
 }
 

@@ -15,6 +15,7 @@ import { propertiesRoutes } from './routes/properties.routes'
 import { shortlistRoutes } from './routes/shortlist.routes'
 import { usersRoutes } from './routes/users.routes'
 import { visitsRoutes } from './routes/visits.routes'
+import { buildCache } from './services/scrapers/crownProperty.scraper'
 
 export const app = express()
 
@@ -65,3 +66,5 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/admin', adminRoutes)
 
 app.use(errorHandler)
+
+buildCache().catch(console.error)

@@ -3,33 +3,58 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import type { CheerioAPI } from 'cheerio'
 import type { AnyNode } from 'domhandler'
-import type { ExternalProperty, SearchParams } from '../propertySync.service'
+import type { ExternalProperty } from '../propertySync.service'
 
 const CROWN_URL = 'https://www.crown-property.com/venta/javea/'
 
 export const cache = {
   data: [] as ExternalProperty[],
   lastFetch: 0,
-  TTL: 60 * 60 * 1000
+  isBuilding: false,
+  TTL: 30 * 60 * 1000
+}
+
+const typeDictionary: Record<'apartment' | 'house', string[]> = {
+  apartment: ['piso', 'apartamento', 'apto', 'flat', 'apartment', 'wohnung', 'appartement'],
+  house: ['chalet', 'villa', 'casa', 'finca', 'house', 'haus', 'maison', 'huis']
+}
+
+const operationDictionary: Record<'sale' | 'rent', string[]> = {
+  sale: ['venta', 'compra', 'sale', 'buy', 'kauf', 'koop', 'achat'],
+  rent: ['alquiler', 'rent', 'miete', 'huur', 'location']
+}
+
+export type CrownSearchKeywords = {
+  price_max?: number
+  surface_min?: number
+  rooms_min?: number
+  type?: 'apartment' | 'house'
+  operation?: 'sale' | 'rent'
+  terms: string[]
+}
+
+export function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export function isCacheValid(): boolean {
-  return cache.data.length > 0 && Date.now() - cache.lastFetch < cache.TTL
+  return cache.lastFetch > 0 && Date.now() - cache.lastFetch < cache.TTL
 }
 
 export const getCrownCacheAgeMinutes = () =>
   cache.lastFetch ? Math.floor((Date.now() - cache.lastFetch) / 60000) : null
 
-const normalizeText = (text: string) =>
-  text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-
 const parseNumber = (text?: string | null) => {
   if (!text) return null
   const clean = text.replace(/m\s*2/gi, '').replace(/m²/gi, '')
   const value = Number(clean.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, ''))
+
   return Number.isFinite(value) ? value : null
 }
 
@@ -48,24 +73,13 @@ const iconValue = ($: CheerioAPI, card: cheerio.Cheerio<AnyNode>, iconTitle: str
   return parseNumber(icon.closest('.property-15__featuredicon').text())
 }
 
-const inferType = (title: string) => {
-  const text = normalizeText(title)
+const refFromUrl = (url: string) => url.match(/(\d+)\/?$/)?.[1] ?? ''
 
-  if (/(piso|apartamento|apto|estudio|atico|bajo)/.test(text)) return 'apartment'
-  if (/(chalet|villa|casa|finca|adosado|townhouse)/.test(text)) return 'house'
-  if (/(local|comercial|oficina|negocio)/.test(text)) return 'commercial'
-  if (/(parcela|terreno|solar)/.test(text)) return 'land'
-  if (/(garaje|parking|plaza)/.test(text)) return 'garage'
+const inferType = (searchText: string) => {
+  if (typeDictionary.apartment.some((term) => searchText.includes(term))) return 'apartment'
+  if (typeDictionary.house.some((term) => searchText.includes(term))) return 'house'
 
   return 'house'
-}
-
-const typeTerms: Record<string, RegExp> = {
-  apartment: /(piso|apartamento|apto|estudio|atico|bajo|apartment|flat)/,
-  house: /(chalet|villa|casa|finca|adosado|unifamiliar|house|townhouse|detached)/,
-  commercial: /(local|comercial|oficina|negocio|commercial|office|shop)/,
-  land: /(parcela|terreno|solar|land|plot)/,
-  garage: /(garaje|parking|plaza|garage)/
 }
 
 const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
@@ -74,79 +88,167 @@ const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
   const title = textOf($, card, '.property-15__title')
   const price = parseNumber(textOf($, card, '.property-15__price-text'))
   const location = textOf($, card, '.property-15__location')
-  const ref = textOf($, card, '.property-15__reference').replace(/^Ref\.\s*/i, '')
   const imageUrl = absoluteUrl(card.find('img.property-15__background').first().attr('src'))
+  const badge = textOf($, card, '.offer-band') || null
 
   if (!sourceUrl || !title || !price) return null
 
   const [, zone = location] = location.split(' - ').map((part) => part.trim())
+  const searchText = normalizeText(`${title} ${zone} ${badge || ''}`)
 
   return {
     id: crypto.createHash('sha1').update(sourceUrl).digest('hex'),
-    ref,
+    ref: refFromUrl(sourceUrl),
     title,
     price,
     zone,
     city: 'Jávea',
-    surface_m2: iconValue($, card, 'Build size') ?? undefined,
-    rooms: iconValue($, card, 'Bedrooms') ?? undefined,
-    bathrooms: iconValue($, card, 'Bathrooms') ?? undefined,
+    surface_m2: iconValue($, card, 'Build size'),
+    rooms: iconValue($, card, 'Bedrooms'),
+    bathrooms: iconValue($, card, 'Bathrooms'),
     image_url: imageUrl,
     images: imageUrl ? [{ url: imageUrl }] : [],
     source_url: sourceUrl,
-    badge: textOf($, card, '.offer-band') || null,
+    badge,
+    search_text: searchText,
     source: 'crown_property',
     source_agency_name: 'Crown Property Jávea',
     source_agency_phone: '+34 965 791 091',
     operation: 'sale',
-    type: inferType(title),
+    type: inferType(searchText),
     description: title
+  }
+}
+
+async function scrapeListing(): Promise<ExternalProperty[]> {
+  const { data } = await axios.get<string>(CROWN_URL, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
+    },
+    timeout: 10000
+  })
+  const $ = cheerio.load(data)
+
+  return $('.property-15__card')
+    .map((_, element) => mapCard($, element))
+    .get()
+    .filter((property): property is ExternalProperty => Boolean(property))
+}
+
+export async function buildCache() {
+  if (cache.isBuilding) return
+  cache.isBuilding = true
+
+  try {
+    const properties = await scrapeListing()
+    cache.data = properties
+    cache.lastFetch = Date.now()
+  } catch (err) {
+    console.error('Crown scrape failed:', err)
+  } finally {
+    cache.isBuilding = false
   }
 }
 
 export async function getCrownProperties(): Promise<ExternalProperty[]> {
   if (isCacheValid()) return cache.data
 
-  try {
-    const { data } = await axios.get<string>(CROWN_URL, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
-      },
-      timeout: 10000
-    })
-    const $ = cheerio.load(data)
-    const properties = $('.property-15__card')
-      .map((_, element) => mapCard($, element))
-      .get()
-      .filter((property): property is ExternalProperty => Boolean(property))
+  if (cache.data.length > 0) {
+    if (!cache.isBuilding) {
+      void buildCache()
+    }
 
-    cache.data = properties
-    cache.lastFetch = Date.now()
-
-    return properties
-  } catch (error) {
-    console.error('[CrownPropertyScraper] Failed to scrape Crown Property', error)
-
-    return cache.data.length ? cache.data : []
+    return cache.data
   }
+
+  await buildCache()
+  return cache.data
 }
 
-export async function searchCrownProperties(params: SearchParams): Promise<ExternalProperty[]> {
-  const properties = await getCrownProperties()
-  const terms = [...(params.terms ?? []), ...(params.raw_terms ?? []), ...(params.features ?? [])]
-    .map(normalizeText)
-    .filter((term) => term.length > 2)
+const parseMoney = (value: string) => {
+  const raw = value.toLowerCase().replace(/\s/g, '')
+  const amount = raw.includes('k')
+    ? Number(raw.replace(',', '.').replace(/[^\d.]/g, ''))
+    : Number(raw.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, ''))
+  if (!Number.isFinite(amount)) return undefined
 
-  return properties.filter((property) => {
-    const title = normalizeText(property.title)
-    const zone = normalizeText(property.zone ?? '')
+  return raw.includes('k') ? amount * 1000 : amount
+}
 
-    if (params.type && !(typeTerms[params.type] ?? /.*/).test(title)) return false
-    if (params.price_max !== undefined && property.price > params.price_max) return false
-    if (params.rooms_min !== undefined && (property.rooms ?? 0) < params.rooms_min) return false
-    if (terms.length && !terms.some((term) => title.includes(term) || zone.includes(term))) return false
+export function parseCrownSearchQuery(query: string): CrownSearchKeywords {
+  const rawQuery = query.toLowerCase()
+  const text = normalizeText(query)
+  const keywords: CrownSearchKeywords = { terms: [] }
+  const consumed = new Set<string>()
 
-    return true
-  })
+  for (const [type, words] of Object.entries(typeDictionary) as Array<[CrownSearchKeywords['type'], string[]]>) {
+    if (words.some((word) => text.includes(word))) {
+      keywords.type = type
+      words.forEach((word) => consumed.add(word))
+      break
+    }
+  }
+
+  for (const [operation, words] of Object.entries(operationDictionary) as Array<[CrownSearchKeywords['operation'], string[]]>) {
+    if (words.some((word) => text.includes(word))) {
+      keywords.operation = operation
+      words.forEach((word) => consumed.add(word))
+      break
+    }
+  }
+
+  const roomMatch = text.match(/(\d+)\s*(hab|bed|zimmer|slaap|chambre)/)
+  if (roomMatch) {
+    keywords.rooms_min = Number(roomMatch[1])
+    consumed.add(roomMatch[1])
+    consumed.add(roomMatch[2])
+  }
+
+  for (const match of rawQuery.matchAll(/(\d+(?:[.,]\d+)?)\s*k\b/g)) {
+    const value = parseMoney(match[0])
+    if (value) keywords.price_max = value
+    consumed.add(normalizeText(match[1]))
+  }
+
+  for (const match of text.matchAll(/(\d+(?:[.,]\d+)?)\s*m\b/g)) {
+    const value = Number(match[1].replace(',', '.'))
+    if (value >= 10 && value <= 999) keywords.surface_min = value
+    consumed.add(match[1])
+  }
+
+  for (const match of rawQuery.matchAll(/\b(?:\d{1,3}(?:[.\s]\d{3})+|\d{4,})\b/g)) {
+    const value = parseMoney(match[0])
+    if (value && value > 1000) keywords.price_max = value
+  }
+
+  keywords.terms = text
+    .split(' ')
+    .filter((term) => term.length > 3 && !consumed.has(term) && !/^\d/.test(term))
+
+  return keywords
+}
+
+export function searchCrownProperties(query: string): ExternalProperty[] {
+  const keywords = parseCrownSearchQuery(query)
+  const typeWords = keywords.type ? typeDictionary[keywords.type] : []
+
+  return cache.data
+    .map((property) => {
+      if (keywords.operation === 'rent') return null
+      if (keywords.price_max !== undefined && property.price > keywords.price_max) return null
+      if (keywords.surface_min !== undefined && (property.surface_m2 ?? 0) < keywords.surface_min) return null
+      if (keywords.rooms_min !== undefined && (property.rooms ?? 0) < keywords.rooms_min) return null
+      if (typeWords.length && !typeWords.some((term) => property.search_text.includes(term))) return null
+
+      const score = keywords.terms.reduce(
+        (total, term) => total + (property.search_text.includes(term) ? 1 : 0),
+        0
+      )
+
+      return { property, score }
+    })
+    .filter((result): result is { property: ExternalProperty; score: number } => Boolean(result))
+    .sort((a, b) => b.score - a.score)
+    .map((result) => result.property)
 }
