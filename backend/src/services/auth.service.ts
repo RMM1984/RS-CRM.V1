@@ -26,7 +26,9 @@ export const login = async (email: string, password: string) => {
     return null
   }
 
-  const passwordMatches = await bcrypt.compare(password, user.password_hash)
+  const passwordMatches =
+    (await bcrypt.compare(password, user.password_hash)) ||
+    (await verifyPostgresCryptPassword(password, user.password_hash))
 
   if (!passwordMatches) {
     return null
@@ -43,4 +45,13 @@ export const login = async (email: string, password: string) => {
   })
 
   return { token }
+}
+
+const verifyPostgresCryptPassword = async (password: string, passwordHash: string) => {
+  const { rows } = await pool.query(
+    'SELECT crypt($1, $2) = $2 AS matches',
+    [password, passwordHash]
+  )
+
+  return rows[0]?.matches === true
 }
