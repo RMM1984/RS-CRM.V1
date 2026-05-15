@@ -21,6 +21,7 @@ import {
   useDeleteContact,
   useUpdateContact
 } from '@/hooks/useContacts'
+import { useShortlist, useUpdateShortlistItem } from '@/hooks/useProperties'
 import { cn } from '@/lib/utils'
 import type {
   AddInteractionDto,
@@ -31,6 +32,7 @@ import type {
   ContactType,
   InteractionType
 } from '@/types/contacts'
+import type { ShortlistStatus } from '@/types/properties'
 
 const typeOptions: Array<{ value: ContactType | 'todos'; label: string }> = [
   { value: 'todos', label: 'Todos' },
@@ -60,6 +62,13 @@ const interactionOptions: Array<{ value: InteractionType; label: string; icon: s
   { value: 'note', label: 'Nota', icon: 'Nota' },
   { value: 'whatsapp', label: 'WhatsApp', icon: 'WhatsApp' },
   { value: 'visit', label: 'Visita', icon: 'Visita' }
+]
+
+const shortlistStatusOptions: Array<{ value: ShortlistStatus; label: string }> = [
+  { value: 'investigating', label: 'Investigando' },
+  { value: 'visit_pending', label: 'Visita pendiente' },
+  { value: 'interested', label: 'Interesado' },
+  { value: 'discarded', label: 'Descartado' }
 ]
 
 const contactSchema = z.object({
@@ -160,6 +169,7 @@ export default function ContactsPage() {
   const [modalContact, setModalContact] = useState<Contact | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  const [panelTab, setPanelTab] = useState<'actividad' | 'expediente'>('actividad')
 
   const contactsQuery = useContacts(filters)
   const contactQuery = useContact(selectedContactId)
@@ -168,6 +178,8 @@ export default function ContactsPage() {
   const updateContact = useUpdateContact()
   const deleteContact = useDeleteContact()
   const addInteraction = useAddInteraction(selectedContactId)
+  const shortlistQuery = useShortlist(selectedContactId)
+  const updateShortlistItem = useUpdateShortlistItem()
 
   const form = useForm<ContactForm>({
     resolver: zodResolver(contactSchema),
@@ -385,7 +397,10 @@ export default function ContactsPage() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       <Button
-                        onClick={() => setSelectedContactId(contact.id)}
+                        onClick={() => {
+                          setSelectedContactId(contact.id)
+                          setPanelTab('actividad')
+                        }}
                         size="icon"
                         title="Ver"
                         variant="ghost"
@@ -588,27 +603,108 @@ export default function ContactsPage() {
                 </Button>
               </div>
 
-              <section className="grid gap-3">
-                <h4 className="font-semibold">Historial de actividad</h4>
-                {selectedContact.interactions.length === 0 ? (
-                  <p className="rounded-md border p-4 text-sm text-muted-foreground">
-                    Sin interacciones registradas.
-                  </p>
-                ) : (
-                  selectedContact.interactions.map((interaction) => (
-                    <div className="relative border-l pl-4" key={interaction.id}>
-                      <span className="absolute -left-2 top-1 grid h-4 w-4 place-items-center rounded-full bg-primary" />
-                      <p className="text-sm font-medium">
-                        {interactionOptions.find((option) => option.value === interaction.type)?.label}
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {relativeDate(interaction.created_at)}
-                        </span>
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">{interaction.content}</p>
-                    </div>
-                  ))
-                )}
-              </section>
+              <div className="mb-4 flex rounded-md border bg-background p-1">
+                <Button
+                  onClick={() => setPanelTab('actividad')}
+                  size="sm"
+                  type="button"
+                  variant={panelTab === 'actividad' ? 'default' : 'ghost'}
+                >
+                  Actividad
+                </Button>
+                <Button
+                  onClick={() => setPanelTab('expediente')}
+                  size="sm"
+                  type="button"
+                  variant={panelTab === 'expediente' ? 'default' : 'ghost'}
+                >
+                  Expediente
+                </Button>
+              </div>
+
+              {panelTab === 'actividad' ? (
+                <section className="grid gap-3">
+                  <h4 className="font-semibold">Historial de actividad</h4>
+                  {selectedContact.interactions.length === 0 ? (
+                    <p className="rounded-md border p-4 text-sm text-muted-foreground">
+                      Sin interacciones registradas.
+                    </p>
+                  ) : (
+                    selectedContact.interactions.map((interaction) => (
+                      <div className="relative border-l pl-4" key={interaction.id}>
+                        <span className="absolute -left-2 top-1 grid h-4 w-4 place-items-center rounded-full bg-primary" />
+                        <p className="text-sm font-medium">
+                          {interactionOptions.find((option) => option.value === interaction.type)?.label}
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {relativeDate(interaction.created_at)}
+                          </span>
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{interaction.content}</p>
+                      </div>
+                    ))
+                  )}
+                </section>
+              ) : (
+                <section className="grid gap-3">
+                  <h4 className="font-semibold">Expediente</h4>
+                  {shortlistQuery.isLoading ? <div className="h-20 animate-pulse rounded-md bg-muted" /> : null}
+                  {shortlistQuery.data?.length === 0 ? (
+                    <p className="rounded-md border p-4 text-sm text-muted-foreground">
+                      Todavia no hay propiedades guardadas para este cliente.
+                    </p>
+                  ) : null}
+                  {shortlistQuery.data?.map((item) => {
+                    const title = item.property_title || item.external_data?.title || 'Propiedad guardada'
+                    const source = item.property_source || item.external_data?.source || 'internal'
+
+                    return (
+                      <div className="grid gap-3 rounded-md border p-3" key={item.id}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{title}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge
+                                className={
+                                  source === 'internal'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-blue-100 text-blue-800'
+                                }
+                              >
+                                {source === 'internal' ? 'EXCLUSIVA' : 'AGENCIA'}
+                              </Badge>
+                              <Badge>
+                                {shortlistStatusOptions.find((option) => option.value === item.status)?.label}
+                              </Badge>
+                            </div>
+                          </div>
+                          <select
+                            className="h-9 rounded-md border bg-background px-2 text-xs"
+                            onChange={(event) =>
+                              updateShortlistItem.mutate({
+                                id: item.id,
+                                payload: { status: event.target.value as ShortlistStatus }
+                              })
+                            }
+                            value={item.status}
+                          >
+                            {shortlistStatusOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {item.notes ? <p className="text-sm text-muted-foreground">{item.notes}</p> : null}
+                        {item.status === 'interested' ? (
+                          <Button size="sm" variant="outline">
+                            Convertir en operacion
+                          </Button>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </section>
+              )}
             </div>
           ) : (
             <div className="p-5 text-sm text-muted-foreground">Cargando contacto...</div>
@@ -627,7 +723,7 @@ export default function ContactsPage() {
                 ))}
               </select>
               <Button disabled={!selectedContactId || addInteraction.isPending} type="submit">
-                Añadir
+                Anadir
               </Button>
             </div>
             <Textarea placeholder="Contenido de la interaccion" {...interactionForm.register('content')} />

@@ -12,6 +12,7 @@ import { contactsRoutes } from './routes/contacts.routes'
 import { dashboardRoutes } from './routes/dashboard.routes'
 import { operationsRoutes } from './routes/operations.routes'
 import { propertiesRoutes } from './routes/properties.routes'
+import { shortlistRoutes } from './routes/shortlist.routes'
 import { usersRoutes } from './routes/users.routes'
 import { visitsRoutes } from './routes/visits.routes'
 
@@ -56,6 +57,7 @@ app.use('/api', verifyJWT, setSchema)
 app.use('/api/users', usersRoutes)
 app.use('/api/contacts', contactsRoutes)
 app.use('/api/properties', propertiesRoutes)
+app.use('/api/shortlist', shortlistRoutes)
 app.use('/api/operations', operationsRoutes)
 app.use('/api/visits', visitsRoutes)
 app.use('/api/dashboard', dashboardRoutes)

@@ -23,15 +23,44 @@ CREATE TABLE IF NOT EXISTS properties (
   title TEXT NOT NULL,
   address TEXT NOT NULL,
   city TEXT NOT NULL DEFAULT 'Madrid',
+  zip TEXT,
   price NUMERIC NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'reserved', 'sold', 'rented')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'reserved', 'sold', 'rented', 'archived')),
   property_type TEXT NOT NULL DEFAULT 'apartment',
+  operation TEXT NOT NULL DEFAULT 'sale' CHECK (operation IN ('sale', 'rent')),
   bedrooms INT,
   bathrooms INT,
   sqm NUMERIC,
+  description TEXT,
+  assigned_to UUID REFERENCES public.users(id),
+  source TEXT NOT NULL DEFAULT 'internal' CHECK (source IN ('internal','kyero','sooprema','other')),
+  source_url TEXT,
+  source_agency_name TEXT,
+  source_agency_phone TEXT,
+  active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS property_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  path TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS property_shortlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.users(id),
+  contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
+  property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+  external_data JSONB,
+  status TEXT DEFAULT 'investigating'
+    CHECK (status IN ('investigating','visit_pending','interested','discarded')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS operations (
@@ -80,6 +109,9 @@ CREATE TABLE IF NOT EXISTS ai_requests (
 
 CREATE INDEX IF NOT EXISTS contacts_stage_idx ON contacts(stage);
 CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
+CREATE INDEX IF NOT EXISTS properties_source_idx ON properties(source);
+CREATE INDEX IF NOT EXISTS properties_operation_idx ON properties(operation);
+CREATE INDEX IF NOT EXISTS property_shortlist_contact_id_idx ON property_shortlist(contact_id);
 CREATE INDEX IF NOT EXISTS operations_status_idx ON operations(status);
 CREATE INDEX IF NOT EXISTS visits_starts_at_idx ON visits(starts_at);
 
