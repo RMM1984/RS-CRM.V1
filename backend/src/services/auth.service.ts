@@ -27,7 +27,7 @@ export const login = async (email: string, password: string) => {
   }
 
   const passwordMatches =
-    (await bcrypt.compare(password, user.password_hash)) ||
+    (await verifyBcryptPassword(password, user.password_hash)) ||
     (await verifyPostgresCryptPassword(password, user.password_hash))
 
   if (!passwordMatches) {
@@ -45,6 +45,14 @@ export const login = async (email: string, password: string) => {
   })
 
   return { token }
+}
+
+const verifyBcryptPassword = async (password: string, passwordHash: string) => {
+  try {
+    return await bcrypt.compare(password, passwordHash)
+  } catch {
+    return false
+  }
 }
 
 const verifyPostgresCryptPassword = async (password: string, passwordHash: string) => {
