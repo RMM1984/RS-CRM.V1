@@ -310,37 +310,55 @@ export const deletePropertyImage = async (db: PoolClient, imageId: string) => {
 type KeywordDictionary = Record<string, Record<string, string[]>>
 
 const TYPE_KEYWORDS: Record<string, string[]> = {
-  house: [
-    'villa', 'chalet', 'casa', 'finca', 'adosado',
-    'unifamiliar', 'bungalow',
-    'house', 'detached', 'cottage', 'townhouse',
-    'haus', 'ferienhaus', 'landhaus',
-    'huis', 'woning', 'boerderij',
-    'maison', 'pavillon', 'mas'
-  ],
   apartment: [
-    'piso', 'apartamento', 'apto', 'estudio', 'bajo',
-    'apartment', 'flat', 'studio',
-    'wohnung',
+    'piso', 'apartamento', 'apto', 'estudio', 'bajo', 'loft',
+    'atico', 'duplex',
+    'apartment', 'flat', 'studio', 'penthouse',
+    'wohnung', 'dachgeschoss',
     'appartement'
   ],
+  house: [
+    'casa', 'casita', 'adosado', 'pareado', 'unifamiliar',
+    'pueblo', 'casa de pueblo',
+    'house', 'townhouse', 'terraced', 'semi detached',
+    'village house', 'cottage', 'town house',
+    'haus', 'reihenhaus', 'doppelhaus', 'stadthaus',
+    'haus im dorf',
+    'huis', 'rijtjeshuis', 'twee onder een kap', 'woning',
+    'maison', 'pavillon', 'maison de village',
+    'mitoyenne', 'jumelee'
+  ],
+  villa: [
+    'villa', 'chalet', 'finca', 'cortijo', 'masia',
+    'manor', 'estate', 'country house',
+    'landhaus', 'anwesen',
+    'landhuis', 'herenhuis',
+    'manoir', 'bastide', 'mas'
+  ],
   commercial: [
-    'local', 'oficina', 'negocio',
-    'office', 'shop', 'retail', 'commercial',
-    'buro', 'laden', 'gewerbe',
-    'kantoor', 'winkel',
-    'bureau', 'boutique', 'commerce'
+    'local', 'comercial', 'oficina', 'negocio', 'nave',
+    'local comercial',
+    'commercial', 'office', 'shop', 'retail', 'warehouse',
+    'business', 'premises',
+    'gewerbe', 'buro', 'laden', 'geschaft', 'lager', 'halle',
+    'bedrijf', 'kantoor', 'winkel', 'pand', 'loods',
+    'commerce', 'bureau', 'boutique', 'entrepot'
   ],
   land: [
-    'parcela', 'terreno', 'solar',
-    'plot', 'land', 'terrain',
-    'grundstuck', 'parzelle',
-    'perceel', 'grond'
+    'parcela', 'terreno', 'solar', 'finca rustica',
+    'suelo',
+    'land', 'plot', 'terrain', 'site', 'building plot',
+    'rustic land',
+    'grundstuck', 'parzelle', 'baugrundstuck',
+    'grond', 'perceel', 'kavel', 'bouwgrond',
+    'parcelle', 'terrain a batir', 'fonds'
   ],
   garage: [
-    'garaje', 'parking', 'plaza de parking',
-    'garage', 'parkplatz',
-    'parkeerplaats'
+    'garaje', 'trastero', 'almacen', 'plaza de garaje',
+    'garage', 'parking', 'storage', 'parking space',
+    'parkplatz', 'stellplatz', 'lager',
+    'parkeerplaats', 'berging', 'opslag',
+    'place de parking', 'cave'
   ]
 }
 
@@ -432,6 +450,7 @@ const includesTerm = (text: string, term: string) => {
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 const splitWords = (text: string) => text.split(/\s+/).filter(Boolean)
+const typeMatchOrder = ['land', 'commercial', 'garage', 'villa', 'house', 'apartment']
 
 const includesWholeTypeTerm = (text: string, term: string) => {
   const normalizedTerm = normalizeText(term)
@@ -444,7 +463,8 @@ const includesWholeTypeTerm = (text: string, term: string) => {
 }
 
 const findTypeMatch = (text: string) => {
-  for (const [value, terms] of Object.entries(TYPE_KEYWORDS)) {
+  for (const value of typeMatchOrder) {
+    const terms = TYPE_KEYWORDS[value] ?? []
     const term = terms.find((candidate) => includesWholeTypeTerm(text, candidate))
 
     if (term) {

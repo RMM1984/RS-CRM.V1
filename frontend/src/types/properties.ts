@@ -45,6 +45,7 @@ export type ExternalProperty = {
   price: number
   operation: PropertyOperation
   type: PropertyType
+  detected_type?: PropertyType
   source: Exclude<PropertySource, 'internal'>
   source_url: string
   source_agency_name?: string

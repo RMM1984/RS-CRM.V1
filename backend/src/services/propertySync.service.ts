@@ -18,6 +18,7 @@ export type ExternalProperty = {
   price: number
   operation: 'sale' | 'rent'
   type: string
+  detected_type?: string
   source: 'kyero' | 'sooprema' | 'crown_property' | 'other'
   source_url: string
   source_agency_name?: string

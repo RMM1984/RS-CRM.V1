@@ -117,9 +117,12 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
 const filterTypeLabels: Record<string, string> = {
   piso: 'piso',
   apartamento: 'apartamento',
+  casa: 'casa de pueblo',
   chalet: 'chalet',
   villa: 'villa',
-  local: 'local'
+  terreno: 'terreno',
+  local: 'local comercial',
+  garaje: 'garaje'
 }
 
 const filterOperationLabels: Record<string, string> = {
@@ -179,21 +182,37 @@ const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFil
   }
 
   if (filters.type && filters.type !== 'all') {
-    const type = normalizeUiText(String(property.type))
+    const type = normalizeUiText(String(property.detected_type ?? property.type))
     const text = normalizeUiText(`${property.title} ${property.zone ?? ''} ${property.search_text ?? ''}`)
     const selectedType = filters.type
     const expectedType =
       selectedType === 'villa' || selectedType === 'chalet'
+        ? 'villa'
+        : selectedType === 'casa'
         ? 'house'
         : selectedType === 'piso' || selectedType === 'apartamento'
           ? 'apartment'
+          : selectedType === 'terreno'
+            ? 'land'
+            : selectedType === 'local'
+              ? 'commercial'
+              : selectedType === 'garaje'
+                ? 'garage'
           : selectedType
     const family =
       selectedType === 'villa' || selectedType === 'chalet'
-        ? ['house', 'villa', 'chalet', 'casa', 'finca']
+        ? ['villa', 'chalet', 'finca', 'cortijo', 'masia']
+        : selectedType === 'casa'
+          ? ['house', 'casa', 'adosado', 'pareado', 'pueblo', 'townhouse', 'cottage']
         : selectedType === 'piso' || selectedType === 'apartamento'
           ? ['apartment', 'piso', 'apartamento', 'apto', 'atico']
-          : [selectedType]
+          : selectedType === 'terreno'
+            ? ['land', 'parcela', 'terreno', 'solar', 'plot']
+            : selectedType === 'local'
+              ? ['commercial', 'local', 'oficina', 'nave', 'shop', 'office']
+              : selectedType === 'garaje'
+                ? ['garage', 'garaje', 'parking', 'trastero']
+                : [selectedType]
 
     if (type !== expectedType && !family.some((term) => uiHasWholeTerm(text, term))) {
       return false
@@ -271,6 +290,7 @@ export default function PropertiesPage() {
       price: Number(item.price),
       operation: item.operation,
       type: item.type,
+      detected_type: item.type,
       source: item.source === 'internal' ? 'other' : item.source,
       source_url: item.source_url || '#',
       source_agency_name: item.source_agency_name || undefined,
@@ -534,9 +554,12 @@ export default function PropertiesPage() {
               ['all', 'Todos'],
               ['piso', 'Piso'],
               ['apartamento', 'Apartamento'],
+              ['casa', 'Casa'],
               ['chalet', 'Chalet'],
               ['villa', 'Villa'],
-              ['local', 'Local']
+              ['terreno', 'Terreno'],
+              ['local', 'Local'],
+              ['garaje', 'Garaje']
             ]}
             value={filters.type ?? 'all'}
           />

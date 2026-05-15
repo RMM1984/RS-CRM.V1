@@ -17,20 +17,59 @@ export const cache = {
   TTL: 30 * 60 * 1000
 }
 
-const typeDictionary: Record<'house' | 'apartment', string[]> = {
-  house: [
-    'villa', 'chalet', 'casa', 'finca', 'adosado',
-    'unifamiliar', 'bungalow',
-    'house', 'detached', 'cottage', 'townhouse',
-    'haus', 'ferienhaus', 'landhaus',
-    'huis', 'woning', 'boerderij',
-    'maison', 'pavillon', 'mas'
-  ],
+type DetectedPropertyType = 'apartment' | 'house' | 'villa' | 'land' | 'commercial' | 'garage'
+const typeSearchOrder: DetectedPropertyType[] = ['land', 'commercial', 'garage', 'villa', 'house', 'apartment']
+
+const typeDictionary: Record<DetectedPropertyType, string[]> = {
   apartment: [
-    'piso', 'apartamento', 'apto', 'estudio', 'bajo',
-    'apartment', 'flat', 'studio',
-    'wohnung',
+    'piso', 'apartamento', 'apto', 'estudio', 'bajo', 'loft',
+    'atico', 'duplex',
+    'apartment', 'flat', 'studio', 'penthouse',
+    'wohnung', 'dachgeschoss',
     'appartement'
+  ],
+  house: [
+    'casa', 'casita', 'adosado', 'pareado', 'unifamiliar',
+    'pueblo', 'casa de pueblo',
+    'house', 'townhouse', 'terraced', 'semi detached',
+    'village house', 'cottage', 'town house',
+    'haus', 'reihenhaus', 'doppelhaus', 'stadthaus',
+    'haus im dorf',
+    'huis', 'rijtjeshuis', 'twee onder een kap', 'woning',
+    'maison', 'pavillon', 'maison de village',
+    'mitoyenne', 'jumelee'
+  ],
+  villa: [
+    'villa', 'chalet', 'finca', 'cortijo', 'masia',
+    'manor', 'estate', 'country house',
+    'landhaus', 'anwesen',
+    'landhuis', 'herenhuis',
+    'manoir', 'bastide', 'mas'
+  ],
+  land: [
+    'parcela', 'terreno', 'solar', 'finca rustica',
+    'suelo',
+    'land', 'plot', 'terrain', 'site', 'building plot',
+    'rustic land',
+    'grundstuck', 'parzelle', 'baugrundstuck',
+    'grond', 'perceel', 'kavel', 'bouwgrond',
+    'parcelle', 'terrain a batir', 'fonds'
+  ],
+  commercial: [
+    'local', 'comercial', 'oficina', 'negocio', 'nave',
+    'local comercial',
+    'commercial', 'office', 'shop', 'retail', 'warehouse',
+    'business', 'premises',
+    'gewerbe', 'buro', 'laden', 'geschaft', 'lager', 'halle',
+    'bedrijf', 'kantoor', 'winkel', 'pand', 'loods',
+    'commerce', 'bureau', 'boutique', 'entrepot'
+  ],
+  garage: [
+    'garaje', 'trastero', 'almacen', 'plaza de garaje',
+    'garage', 'parking', 'storage', 'parking space',
+    'parkplatz', 'stellplatz', 'lager',
+    'parkeerplaats', 'berging', 'opslag',
+    'place de parking', 'cave'
   ]
 }
 
@@ -38,12 +77,13 @@ const operationDictionary: Record<'sale' | 'rent', string[]> = {
   sale: ['venta', 'compra', 'sale', 'buy', 'kauf', 'koop', 'achat'],
   rent: ['alquiler', 'rent', 'miete', 'huur', 'location']
 }
+const shortSearchTerms = new Set(['mar', 'sea', 'mer', 'zee'])
 
 export type CrownSearchKeywords = {
   price_max?: number
   surface_min?: number
   rooms_min?: number
-  type?: 'apartment' | 'house'
+  type?: DetectedPropertyType
   operation?: 'sale' | 'rent'
   terms: string[]
 }
@@ -110,9 +150,15 @@ const includesWholeTerm = (text: string, term: string) => {
   return splitWords(text).some((word) => word === normalizedTerm)
 }
 
-const inferType = (searchText: string) => {
-  if (typeDictionary.house.some((term) => includesWholeTerm(searchText, term))) return 'house'
-  if (typeDictionary.apartment.some((term) => includesWholeTerm(searchText, term))) return 'apartment'
+function detectTypeFromTitle(title: string): DetectedPropertyType {
+  const text = normalizeText(title)
+
+  if (typeDictionary.land.some((term) => includesWholeTerm(text, term))) return 'land'
+  if (typeDictionary.commercial.some((term) => includesWholeTerm(text, term))) return 'commercial'
+  if (typeDictionary.garage.some((term) => includesWholeTerm(text, term))) return 'garage'
+  if (typeDictionary.villa.some((term) => includesWholeTerm(text, term))) return 'villa'
+  if (typeDictionary.house.some((term) => includesWholeTerm(text, term))) return 'house'
+  if (typeDictionary.apartment.some((term) => includesWholeTerm(text, term))) return 'apartment'
 
   return 'house'
 }
@@ -130,6 +176,7 @@ const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
 
   const [, zone = location] = location.split(' - ').map((part) => part.trim())
   const searchText = normalizeText(`${title} ${zone} ${badge || ''}`)
+  const detectedType = detectTypeFromTitle(title)
 
   return {
     id: crypto.createHash('sha1').update(sourceUrl).digest('hex'),
@@ -150,7 +197,8 @@ const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
     source_agency_name: 'Crown Property Jávea',
     source_agency_phone: '+34 965 791 091',
     operation: 'sale',
-    type: inferType(searchText),
+    type: detectedType,
+    detected_type: detectedType,
     description: title
   }
 }
@@ -242,7 +290,8 @@ export function parseCrownSearchQuery(query: string): CrownSearchKeywords {
   const keywords: CrownSearchKeywords = { terms: [] }
   const consumed = new Set<string>()
 
-  for (const [type, words] of Object.entries(typeDictionary) as Array<[CrownSearchKeywords['type'], string[]]>) {
+  for (const type of typeSearchOrder) {
+    const words = typeDictionary[type]
     if (words.some((word) => includesWholeTerm(text, word))) {
       keywords.type = type
       words.forEach((word) => consumed.add(word))
@@ -284,7 +333,7 @@ export function parseCrownSearchQuery(query: string): CrownSearchKeywords {
 
   keywords.terms = text
     .split(' ')
-    .filter((term) => term.length > 3 && !consumed.has(term) && !/^\d/.test(term))
+    .filter((term) => (term.length > 3 || shortSearchTerms.has(term)) && !consumed.has(term) && !/^\d/.test(term))
 
   return keywords
 }
@@ -304,7 +353,7 @@ export function searchCrownProperties(query: string): ExternalProperty[] {
         return null
       }
       if (keywords.rooms_min !== undefined && property.rooms !== null && property.rooms < keywords.rooms_min) return null
-      if (keywords.type && property.type !== keywords.type) return null
+      if (keywords.type && (property.detected_type ?? property.type) !== keywords.type) return null
 
       const score = keywords.terms.reduce(
         (total, term) => total + (property.search_text.includes(term) ? 1 : 0),
