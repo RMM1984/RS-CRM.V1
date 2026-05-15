@@ -186,6 +186,12 @@ export default function ContactsPage() {
   const contacts = contactsQuery.data?.contacts ?? []
   const total = contactsQuery.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / filters.limit))
+  const contactsError =
+    contactsQuery.error instanceof Error
+      ? contactsQuery.error.message
+      : contactsQuery.error
+        ? 'No se pudo cargar la lista de contactos'
+        : null
 
   const selectedContact = contactQuery.data
 
@@ -309,6 +315,11 @@ export default function ContactsPage() {
       </Card>
 
       <Card className="overflow-hidden">
+        {contactsError ? (
+          <div className="border-b bg-red-50 px-4 py-3 text-sm text-red-700">
+            Error al cargar contactos: {contactsError}
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
@@ -334,7 +345,7 @@ export default function ContactsPage() {
                   ))
                 : null}
 
-              {!contactsQuery.isLoading && contacts.length === 0 ? (
+              {!contactsQuery.isLoading && !contactsError && contacts.length === 0 ? (
                 <tr>
                   <td className="px-4 py-14 text-center text-muted-foreground" colSpan={8}>
                     No hay contactos con estos filtros.
