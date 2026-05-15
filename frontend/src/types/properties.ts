@@ -50,6 +50,7 @@ export type ExternalProperty = {
   source_agency_name?: string
   source_agency_phone?: string
   image_url?: string
+  images?: PropertyImage[]
   surface_m2?: number
   rooms?: number
   bathrooms?: number

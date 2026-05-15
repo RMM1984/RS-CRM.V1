@@ -206,6 +206,8 @@ export default function PropertiesPage() {
           source_url: item.source_url || '#',
           source_agency_name: item.source_agency_name || undefined,
           source_agency_phone: item.source_agency_phone || undefined,
+          image_url: item.images?.[0]?.url,
+          images: item.images,
           surface_m2: item.surface_m2 ? Number(item.surface_m2) : undefined,
           rooms: item.rooms || undefined,
           bathrooms: item.bathrooms || undefined,
@@ -701,37 +703,41 @@ const PropertyCard = ({
   </Card>
 )
 
-const ExternalCard = ({ onSave, property }: { onSave: () => void; property: ExternalProperty }) => (
-  <Card className="overflow-hidden">
-    <div className="relative grid h-44 place-items-center bg-blue-50">
-      {property.image_url ? (
-        <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={property.image_url} />
-      ) : (
-        <Home className="h-14 w-14 text-blue-500" />
-      )}
-      <Badge className="absolute left-3 top-3 bg-blue-600 text-white">AGENCIA {property.source}</Badge>
-    </div>
-    <div className="grid gap-3 p-4">
-      <div>
-        <h3 className="font-semibold">{property.title}</h3>
-        <p className="text-sm text-muted-foreground">{property.city}</p>
+const ExternalCard = ({ onSave, property }: { onSave: () => void; property: ExternalProperty }) => {
+  const imageUrl = property.image_url || property.images?.[0]?.url
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="relative grid h-44 place-items-center bg-blue-50">
+        {imageUrl ? (
+          <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
+        ) : (
+          <Home className="h-14 w-14 text-blue-500" />
+        )}
+        <Badge className="absolute left-3 top-3 bg-blue-600 text-white">AGENCIA {property.source}</Badge>
       </div>
-      <p className="text-xl font-semibold">{formatPrice(property.price, property.operation)}</p>
-      <FeatureRow property={property} />
-      <div className="grid grid-cols-2 gap-2">
-        <Button asChild variant="outline">
-          <a href={property.source_url} rel="noreferrer" target="_blank">
-            Ver detalle
-          </a>
-        </Button>
-        <Button className="gap-2" onClick={onSave}>
-          <Save className="h-4 w-4" />
-          Guardar
-        </Button>
+      <div className="grid gap-3 p-4">
+        <div>
+          <h3 className="font-semibold">{property.title}</h3>
+          <p className="text-sm text-muted-foreground">{property.city}</p>
+        </div>
+        <p className="text-xl font-semibold">{formatPrice(property.price, property.operation)}</p>
+        <FeatureRow property={property} />
+        <div className="grid grid-cols-2 gap-2">
+          <Button asChild variant="outline">
+            <a href={property.source_url} rel="noreferrer" target="_blank">
+              Ver detalle
+            </a>
+          </Button>
+          <Button className="gap-2" onClick={onSave}>
+            <Save className="h-4 w-4" />
+            Guardar
+          </Button>
+        </div>
       </div>
-    </div>
-  </Card>
-)
+    </Card>
+  )
+}
 
 const FeatureRow = ({ property }: { property: Property | ExternalProperty }) => (
   <div className="flex flex-wrap gap-2">
