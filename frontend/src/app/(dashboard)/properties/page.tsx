@@ -697,8 +697,8 @@ const PropertyCard = ({
   onView: () => void
   property: Property
 }) => (
-  <Card className="overflow-hidden">
-    <div className="relative grid h-44 place-items-center bg-slate-100">
+  <Card className="flex h-full flex-col overflow-hidden">
+    <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
       {property.images?.[0]?.url ? (
         <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={property.images[0].url} />
       ) : (
@@ -706,17 +706,17 @@ const PropertyCard = ({
           {initials(property.title)}
         </div>
       )}
-      <Badge className="absolute left-3 top-3 bg-emerald-600 text-white">EXCLUSIVA</Badge>
+      <Badge className="absolute left-3 top-3 bg-emerald-600 text-white shadow-sm">EXCLUSIVA</Badge>
     </div>
-    <div className="grid gap-3 p-4">
-      <div>
-        <h3 className="font-semibold">{property.title}</h3>
+    <div className="flex flex-1 flex-col gap-3 bg-card p-4">
+      <div className="min-h-[68px]">
+        <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
         <p className="text-sm text-muted-foreground">{property.city}</p>
       </div>
-      <p className="text-xl font-semibold">{formatPrice(property.price, property.operation)}</p>
+      <p className="text-lg font-semibold text-foreground">{formatPrice(property.price, property.operation)}</p>
       <FeatureRow property={property} />
       <p className="text-xs text-muted-foreground">Agente: {property.assigned_to || '-'}</p>
-      <div className="grid grid-cols-4 gap-1">
+      <div className="mt-auto grid grid-cols-4 gap-1">
         <Button onClick={onView} size="icon" title="Ver ficha" variant="outline">
           <Eye className="h-4 w-4" />
         </Button>
@@ -738,23 +738,23 @@ const ExternalCard = ({ onSave, property }: { onSave: () => void; property: Exte
   const imageUrl = property.image_url || property.images?.[0]?.url
 
   return (
-    <Card className="overflow-hidden">
-      <div className="relative grid h-44 place-items-center bg-blue-50">
+    <Card className="flex h-full flex-col overflow-hidden">
+      <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-blue-50">
         {imageUrl ? (
           <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
         ) : (
           <Home className="h-14 w-14 text-blue-500" />
         )}
-        <Badge className="absolute left-3 top-3 bg-blue-600 text-white">AGENCIA {property.source}</Badge>
+        <Badge className="absolute left-3 top-3 bg-blue-600 text-white shadow-sm">AGENCIA {property.source}</Badge>
       </div>
-      <div className="grid gap-3 p-4">
-        <div>
-          <h3 className="font-semibold">{property.title}</h3>
+      <div className="flex flex-1 flex-col gap-3 bg-card p-4">
+        <div className="min-h-[68px]">
+          <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
           <p className="text-sm text-muted-foreground">{property.city}</p>
         </div>
-        <p className="text-xl font-semibold">{formatPrice(property.price, property.operation)}</p>
+        <p className="text-lg font-semibold text-foreground">{formatPrice(property.price, property.operation)}</p>
         <FeatureRow property={property} />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-auto grid grid-cols-2 gap-2">
           <Button asChild variant="outline">
             <a href={property.source_url} rel="noreferrer" target="_blank">
               Ver detalle
