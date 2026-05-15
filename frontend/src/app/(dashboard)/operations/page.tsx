@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   closestCenter,
   DndContext,
@@ -123,10 +124,16 @@ const asNumber = (value: unknown) => {
 }
 
 export default function OperationsPage() {
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
-  const [filters, setFilters] = useState<OperationFilters>({ type: 'all', agent_id: 'all' })
+  const initialStage = searchParams.get('stage') as OperationStage | null
+  const [filters, setFilters] = useState<OperationFilters>({
+    type: 'all',
+    agent_id: 'all',
+    stage: initialStage && stages.some((stage) => stage.id === initialStage) ? initialStage : 'all'
+  })
   const [modalStage, setModalStage] = useState<OperationStage>('lead')
   const [editing, setEditing] = useState<Operation | null>(null)
   const [selected, setSelected] = useState<Operation | null>(null)
@@ -275,6 +282,15 @@ export default function OperationsPage() {
             ['all', 'Todos'],
             ['sale', 'Venta'],
             ['rent', 'Alquiler']
+          ]}
+        />
+        <FilterSelect
+          label="Stage"
+          value={filters.stage ?? 'all'}
+          onChange={(value) => setFilters((current) => ({ ...current, stage: value as OperationStage | 'all' }))}
+          options={[
+            ['all', 'Todos'],
+            ...stages.map((stage) => [stage.id, stage.label] as [string, string])
           ]}
         />
         {isAdmin ? (
