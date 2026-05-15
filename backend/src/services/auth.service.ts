@@ -36,6 +36,7 @@ export const login = async (email: string, password: string) => {
 
   const token = signToken({
     id: user.id,
+    sub: user.id,
     email: user.email,
     role: user.role,
     tenant_id: user.tenant_id,
@@ -56,10 +57,15 @@ const verifyBcryptPassword = async (password: string, passwordHash: string) => {
 }
 
 const verifyPostgresCryptPassword = async (password: string, passwordHash: string) => {
-  const { rows } = await pool.query(
-    'SELECT crypt($1, $2) = $2 AS matches',
-    [password, passwordHash]
-  )
+  try {
+    const { rows } = await pool.query(
+      'SELECT crypt($1, $2) = $2 AS matches',
+      [password, passwordHash]
+    )
 
-  return rows[0]?.matches === true
+    return rows[0]?.matches === true
+  } catch (err) {
+    console.error(err)
+    return false
+  }
 }

@@ -6,6 +6,7 @@ import type { AuthUser } from '../types/express'
 
 const jwtPayloadSchema = z.object({
   id: z.string().uuid(),
+  sub: z.string().uuid().optional(),
   email: z.string().email(),
   role: z.enum(['admin', 'agent']),
   tenant_id: z.string().uuid(),

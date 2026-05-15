@@ -4,6 +4,7 @@ export type AuthRole = 'admin' | 'agent'
 
 export type AuthUser = {
   id: string
+  sub?: string
   email: string
   role: AuthRole
   tenant_id: string
