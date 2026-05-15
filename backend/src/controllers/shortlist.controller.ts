@@ -35,6 +35,14 @@ export const create: RequestHandler = async (req, res, next) => {
     const item = await propertiesService.createShortlistItem(req.db!, createSchema.parse(req.body), req.user!)
     return sendSuccess(res, item, 201)
   } catch (err) {
+    if (err instanceof propertiesService.ShortlistDuplicateError) {
+      return res.status(409).json({
+        success: false,
+        error: err.message,
+        code: err.code
+      })
+    }
+
     return next(err)
   }
 }

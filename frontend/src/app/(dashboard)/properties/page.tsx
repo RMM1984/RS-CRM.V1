@@ -1,6 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import axios from 'axios'
 import {
   Archive,
   Bath,
@@ -159,6 +160,7 @@ export default function PropertiesPage() {
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
   const [shortlistTarget, setShortlistTarget] = useState<Property | ExternalProperty | null>(null)
+  const [duplicateShortlist, setDuplicateShortlist] = useState<{ contactId: string; contactName: string } | null>(null)
   const [toast, setToast] = useState<{ contactId: string; contactName: string } | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -185,6 +187,12 @@ export default function PropertiesPage() {
       notes: ''
     }
   })
+
+  useEffect(() => {
+    const subscription = shortlistForm.watch(() => setDuplicateShortlist(null))
+
+    return () => subscription.unsubscribe()
+  }, [shortlistForm])
 
   const baseProperties = propertiesQuery.data?.properties ?? []
   const internalProperties = searchResult ? searchResult.internal : baseProperties.filter((item) => item.source === 'internal')
@@ -273,17 +281,32 @@ export default function PropertiesPage() {
     const isExternal = 'source_url' in shortlistTarget && shortlistTarget.source !== 'internal'
     const selectedContact = contactsQuery.data?.contacts.find((contact) => contact.id === values.contact_id)
 
-    await saveToShortlist.mutateAsync({
-      contact_id: values.contact_id,
-      property_id: isExternal ? null : shortlistTarget.id,
-      external_data: isExternal ? (shortlistTarget as ExternalProperty) : null,
-      notes: values.notes || null
-    })
+    try {
+      await saveToShortlist.mutateAsync({
+        contact_id: values.contact_id,
+        property_id: isExternal ? null : shortlistTarget.id,
+        external_data: isExternal ? (shortlistTarget as ExternalProperty) : null,
+        notes: values.notes || null
+      })
+    } catch (error) {
+      const data = axios.isAxiosError(error) ? error.response?.data : null
+
+      if (axios.isAxiosError(error) && error.response?.status === 409 && data?.code === 'ALREADY_IN_SHORTLIST') {
+        setDuplicateShortlist({
+          contactId: values.contact_id,
+          contactName: selectedContact?.name ?? 'este cliente'
+        })
+        return
+      }
+
+      throw error
+    }
 
     setToast({
       contactId: values.contact_id,
       contactName: selectedContact?.name ?? 'este cliente'
     })
+    setDuplicateShortlist(null)
     shortlistForm.reset({ contact_id: '', notes: '' })
     setShortlistTarget(null)
   }
@@ -469,9 +492,18 @@ export default function PropertiesPage() {
       {shortlistTarget ? (
         <ShortlistModal
           contacts={contactsQuery.data?.contacts ?? []}
+          duplicate={duplicateShortlist}
           form={shortlistForm}
           isSaving={saveToShortlist.isPending}
-          onClose={() => setShortlistTarget(null)}
+          onClose={() => {
+            setDuplicateShortlist(null)
+            setShortlistTarget(null)
+          }}
+          onViewExpediente={(contactId) => {
+            router.push(`/contacts?contactId=${contactId}&tab=expediente`)
+            setDuplicateShortlist(null)
+            setShortlistTarget(null)
+          }}
           onSubmit={onSaveToShortlist}
           propertyTitle={shortlistTarget.title}
         />
@@ -888,16 +920,20 @@ const PropertyModal = ({
 
 const ShortlistModal = ({
   contacts,
+  duplicate,
   form,
   isSaving,
   onClose,
+  onViewExpediente,
   onSubmit,
   propertyTitle
 }: {
   contacts: Array<{ id: string; name: string; email: string | null }>
+  duplicate: { contactId: string; contactName: string } | null
   form: ReturnType<typeof useForm<ShortlistForm>>
   isSaving: boolean
   onClose: () => void
+  onViewExpediente: (contactId: string) => void
   onSubmit: (values: ShortlistForm) => Promise<void>
   propertyTitle: string
 }) => (
@@ -924,6 +960,21 @@ const ShortlistModal = ({
         <Field label="Notas">
           <Textarea {...form.register('notes')} />
         </Field>
+        {duplicate ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-semibold">
+              ⚠️ Esta propiedad ya esta guardada en el expediente de {duplicate.contactName}
+            </p>
+            <Button
+              className="mt-3"
+              onClick={() => onViewExpediente(duplicate.contactId)}
+              type="button"
+              variant="outline"
+            >
+              Ver expediente →
+            </Button>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-2">
           <Button type="button" variant="outline">
             Crear nuevo contacto
@@ -932,7 +983,7 @@ const ShortlistModal = ({
             <Button onClick={onClose} type="button" variant="outline">
               Cancelar
             </Button>
-            <Button disabled={isSaving} type="submit">
+            <Button disabled={isSaving || Boolean(duplicate)} type="submit">
               Guardar
             </Button>
           </div>

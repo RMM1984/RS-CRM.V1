@@ -41,6 +41,14 @@ export type ShortlistInput = {
   notes?: string | null
 }
 
+export class ShortlistDuplicateError extends Error {
+  code = 'ALREADY_IN_SHORTLIST'
+
+  constructor() {
+    super('Esta propiedad ya está en el expediente de este cliente')
+  }
+}
+
 type UploadedFile = {
   originalname: string
   mimetype: string
@@ -591,6 +599,37 @@ export const externalId = (property: ExternalProperty) =>
 
 export const createShortlistItem = async (db: PoolClient, data: ShortlistInput, user: AuthUser) => {
   await ensurePropertiesModuleSchema(db)
+
+  if (data.property_id) {
+    const { rows } = await db.query(
+      'SELECT id FROM property_shortlist WHERE contact_id = $1 AND property_id = $2 LIMIT 1',
+      [data.contact_id, data.property_id]
+    )
+
+    if (rows[0]) {
+      throw new ShortlistDuplicateError()
+    }
+  } else {
+    const sourceUrl =
+      data.external_data && typeof data.external_data.source_url === 'string'
+        ? data.external_data.source_url
+        : null
+
+    if (sourceUrl) {
+      const { rows } = await db.query(
+        `SELECT id FROM property_shortlist
+         WHERE contact_id = $1
+           AND external_data->>'source_url' = $2
+         LIMIT 1`,
+        [data.contact_id, sourceUrl]
+      )
+
+      if (rows[0]) {
+        throw new ShortlistDuplicateError()
+      }
+    }
+  }
+
   const { rows } = await db.query(
     `INSERT INTO property_shortlist (user_id, contact_id, property_id, external_data, notes)
      VALUES ($1,$2,$3,$4,$5)
