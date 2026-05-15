@@ -71,9 +71,13 @@ CREATE TABLE IF NOT EXISTS operations (
   contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
   type TEXT NOT NULL CHECK (type IN ('sale', 'rent')),
-  status TEXT NOT NULL DEFAULT 'lead' CHECK (status IN ('lead', 'qualified', 'tour', 'offer', 'closing', 'won', 'lost')),
-  amount NUMERIC NOT NULL DEFAULT 0,
+  stage TEXT NOT NULL DEFAULT 'lead' CHECK (stage IN ('lead', 'visit', 'offer', 'contract', 'closed', 'lost')),
+  value NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT,
+  agent_id UUID REFERENCES public.users(id),
   expected_close_date DATE,
+  active BOOLEAN NOT NULL DEFAULT true,
+  closed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ
@@ -115,7 +119,9 @@ CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 CREATE INDEX IF NOT EXISTS properties_source_idx ON properties(source);
 CREATE INDEX IF NOT EXISTS properties_operation_idx ON properties(operation);
 CREATE INDEX IF NOT EXISTS property_shortlist_contact_id_idx ON property_shortlist(contact_id);
-CREATE INDEX IF NOT EXISTS operations_status_idx ON operations(status);
+CREATE INDEX IF NOT EXISTS operations_stage_idx ON operations(stage);
+CREATE INDEX IF NOT EXISTS operations_agent_id_idx ON operations(agent_id);
+CREATE INDEX IF NOT EXISTS operations_active_idx ON operations(active);
 CREATE INDEX IF NOT EXISTS visits_starts_at_idx ON visits(starts_at);
 
 RESET search_path;
