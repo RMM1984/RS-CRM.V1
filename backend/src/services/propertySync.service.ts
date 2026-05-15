@@ -4,6 +4,7 @@ export type SearchParams = {
   city?: string
   price_max?: number
   rooms_min?: number
+  terms?: string[]
   raw_terms?: string[]
   language_detected?: string
   features: string[]
@@ -16,15 +17,19 @@ export type ExternalProperty = {
   price: number
   operation: 'sale' | 'rent'
   type: string
-  source: 'kyero' | 'sooprema' | 'other'
+  source: 'kyero' | 'sooprema' | 'crown_property' | 'other'
   source_url: string
   source_agency_name?: string
   source_agency_phone?: string
   image_url?: string
+  images?: Array<{ url: string }>
   surface_m2?: number
   rooms?: number
   bathrooms?: number
   description?: string
+  ref?: string
+  zone?: string
+  badge?: string | null
 }
 
 export class PropertySyncService {

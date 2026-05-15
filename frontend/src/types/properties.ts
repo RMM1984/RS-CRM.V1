@@ -109,6 +109,7 @@ export type PropertySearchResult = {
   keywords: SearchKeywords
   internal: Property[]
   external: ExternalProperty[]
+  cache_age_minutes?: number | null
 }
 
 export type ShortlistItem = {

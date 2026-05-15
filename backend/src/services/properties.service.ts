@@ -2,7 +2,8 @@ import crypto from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { env } from '../config/env'
 import type { AuthUser } from '../types/express'
-import { PropertySyncService, type ExternalProperty, type SearchParams } from './propertySync.service'
+import { getCrownCacheAgeMinutes, searchCrownProperties } from './scrapers/crownProperty.scraper'
+import type { ExternalProperty, SearchParams } from './propertySync.service'
 
 export type PropertyFilters = {
   type?: string
@@ -588,10 +589,9 @@ export const searchProperties = async (db: PoolClient, query: string) => {
     values
   )
   const internal = rows.filter((property) => property.source === 'internal')
-  const localExternal = rows.filter((property) => property.source !== 'internal')
-  const external = await new PropertySyncService().searchExternal(keywords)
+  const external = await searchCrownProperties(keywords)
 
-  return { keywords, internal, external: [...localExternal, ...external] }
+  return { keywords, internal, external, cache_age_minutes: getCrownCacheAgeMinutes() }
 }
 
 export const externalId = (property: ExternalProperty) =>
