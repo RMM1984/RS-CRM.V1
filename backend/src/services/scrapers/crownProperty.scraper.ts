@@ -6,6 +6,9 @@ import type { AnyNode } from 'domhandler'
 import type { ExternalProperty } from '../propertySync.service'
 
 const CROWN_URL = 'https://www.crown-property.com/venta/javea/'
+const MAX_LISTING_PAGES = 30
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
 
 export const cache = {
   data: [] as ExternalProperty[],
@@ -128,20 +131,45 @@ const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
   }
 }
 
-async function scrapeListing(): Promise<ExternalProperty[]> {
-  const { data } = await axios.get<string>(CROWN_URL, {
+const fetchListingPage = async (url: string) => {
+  const { data } = await axios.get<string>(url, {
     headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
+      'User-Agent': USER_AGENT
     },
     timeout: 10000
   })
-  const $ = cheerio.load(data)
 
-  return $('.property-15__card')
+  return cheerio.load(data)
+}
+
+const parseCards = ($: CheerioAPI) =>
+  $('.property-15__card')
     .map((_, element) => mapCard($, element))
     .get()
     .filter((property): property is ExternalProperty => Boolean(property))
+
+async function scrapeListing(): Promise<ExternalProperty[]> {
+  const firstPage = await fetchListingPage(CROWN_URL)
+  const pageCards = [parseCards(firstPage)]
+  const seen = new Set<string>()
+
+  for (let page = 2; page <= MAX_LISTING_PAGES; page += 1) {
+    const $ = await fetchListingPage(`${CROWN_URL}pagina-${page}/`)
+    const cards = parseCards($)
+
+    if (!cards.length) break
+
+    pageCards.push(cards)
+  }
+
+  return pageCards
+    .flat()
+    .filter((property) => {
+      if (seen.has(property.source_url)) return false
+      seen.add(property.source_url)
+
+      return true
+    })
 }
 
 export async function buildCache() {
