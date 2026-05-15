@@ -67,6 +67,18 @@ const propertySelect = `
   updated_at
 `
 
+const propertyListSelect = `
+  ${propertySelect},
+  COALESCE(
+    (
+      SELECT json_agg(pi ORDER BY pi.created_at)
+      FROM property_images pi
+      WHERE pi.property_id = properties.id
+    ),
+    '[]'::json
+  ) AS images
+`
+
 export const ensurePropertiesModuleSchema = async (db: PoolClient) => {
   await db.query(`
     ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_status_check;
@@ -154,7 +166,7 @@ export const listProperties = async (db: PoolClient, filters: PropertyFilters) =
   const offset = (filters.page - 1) * filters.limit
   const count = await db.query(`SELECT count(*)::int AS total FROM properties ${where}`, values)
   const { rows } = await db.query(
-    `SELECT ${propertySelect} FROM properties ${where}
+    `SELECT ${propertyListSelect} FROM properties ${where}
      ORDER BY source = 'internal' DESC, created_at DESC
      LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
     [...values, filters.limit, offset]
