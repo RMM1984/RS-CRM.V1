@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express'
 import { z } from 'zod'
 import * as propertiesService from '../services/properties.service'
+import { getCrownCacheStatus } from '../services/scrapers/crownProperty.scraper'
 
 const idSchema = z.string().uuid()
 
@@ -120,6 +121,10 @@ export const search: RequestHandler = async (req, res, next) => {
   } catch (err) {
     return next(err)
   }
+}
+
+export const cacheStatus: RequestHandler = (_req, res) => {
+  res.json(getCrownCacheStatus())
 }
 
 export const addImage: RequestHandler = async (req, res, next) => {

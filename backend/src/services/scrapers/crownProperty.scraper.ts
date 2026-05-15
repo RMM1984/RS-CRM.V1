@@ -50,6 +50,14 @@ export function isCacheValid(): boolean {
 export const getCrownCacheAgeMinutes = () =>
   cache.lastFetch ? Math.floor((Date.now() - cache.lastFetch) / 60000) : null
 
+export const getCrownCacheStatus = () => ({
+  count: cache.data.length,
+  isBuilding: cache.isBuilding,
+  lastFetch: cache.lastFetch,
+  ageMinutes: getCrownCacheAgeMinutes(),
+  sample: cache.data.slice(0, 2)
+})
+
 const parseNumber = (text?: string | null) => {
   if (!text) return null
   const clean = text.replace(/m\s*2/gi, '').replace(/m²/gi, '')
@@ -237,8 +245,14 @@ export function searchCrownProperties(query: string): ExternalProperty[] {
     .map((property) => {
       if (keywords.operation === 'rent') return null
       if (keywords.price_max !== undefined && property.price > keywords.price_max) return null
-      if (keywords.surface_min !== undefined && (property.surface_m2 ?? 0) < keywords.surface_min) return null
-      if (keywords.rooms_min !== undefined && (property.rooms ?? 0) < keywords.rooms_min) return null
+      if (
+        keywords.surface_min !== undefined &&
+        property.surface_m2 !== null &&
+        property.surface_m2 < keywords.surface_min
+      ) {
+        return null
+      }
+      if (keywords.rooms_min !== undefined && property.rooms !== null && property.rooms < keywords.rooms_min) return null
       if (typeWords.length && !typeWords.some((term) => property.search_text.includes(term))) return null
 
       const score = keywords.terms.reduce(
