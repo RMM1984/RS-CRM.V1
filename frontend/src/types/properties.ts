@@ -124,6 +124,11 @@ export type ShortlistItem = {
   property_title?: string | null
   property_source?: PropertySource | null
   property_price?: number | string | null
+  property_operation?: PropertyOperation | null
+  property_rooms?: number | null
+  property_surface_m2?: number | string | null
+  property_source_url?: string | null
+  property_images?: PropertyImage[]
 }
 
 export type SaveToShortlistDto = {

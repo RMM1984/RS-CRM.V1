@@ -1,7 +1,8 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Eye, FolderOpen, Home, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -21,7 +22,7 @@ import {
   useDeleteContact,
   useUpdateContact
 } from '@/hooks/useContacts'
-import { useShortlist, useUpdateShortlistItem } from '@/hooks/useProperties'
+import { useRemoveFromShortlist, useShortlist, useUpdateShortlistItem } from '@/hooks/useProperties'
 import { cn } from '@/lib/utils'
 import type {
   AddInteractionDto,
@@ -32,7 +33,7 @@ import type {
   ContactType,
   InteractionType
 } from '@/types/contacts'
-import type { ShortlistStatus } from '@/types/properties'
+import type { ShortlistItem, ShortlistStatus } from '@/types/properties'
 
 const typeOptions: Array<{ value: ContactType | 'todos'; label: string }> = [
   { value: 'todos', label: 'Todos' },
@@ -158,6 +159,8 @@ const relativeDate = (date: string) => {
 }
 
 export default function ContactsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const [filters, setFilters] = useState<ContactFilters>({
     type: 'todos',
@@ -170,6 +173,8 @@ export default function ContactsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
   const [panelTab, setPanelTab] = useState<'actividad' | 'expediente'>('actividad')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
 
   const contactsQuery = useContacts(filters)
   const contactQuery = useContact(selectedContactId)
@@ -180,6 +185,7 @@ export default function ContactsPage() {
   const addInteraction = useAddInteraction(selectedContactId)
   const shortlistQuery = useShortlist(selectedContactId)
   const updateShortlistItem = useUpdateShortlistItem()
+  const removeFromShortlist = useRemoveFromShortlist()
 
   const form = useForm<ContactForm>({
     resolver: zodResolver(contactSchema),
@@ -206,6 +212,7 @@ export default function ContactsPage() {
         : null
 
   const selectedContact = contactQuery.data
+  const shortlistCount = shortlistQuery.data?.length ?? 0
 
   const modalTitle = modalContact ? 'Editar contacto' : 'Nuevo contacto'
   const canAssign = user?.role === 'admin'
@@ -230,6 +237,16 @@ export default function ContactsPage() {
       form.reset(emptyContactValues)
     }
   }, [form, isModalOpen, modalContact])
+
+  useEffect(() => {
+    const contactId = searchParams.get('contactId')
+    const tab = searchParams.get('tab')
+
+    if (contactId) {
+      setSelectedContactId(contactId)
+      setPanelTab(tab === 'expediente' ? 'expediente' : 'actividad')
+    }
+  }, [searchParams])
 
   const onSaveContact = async (values: ContactForm) => {
     const payload = normalizeForm(values)
@@ -618,7 +635,7 @@ export default function ContactsPage() {
                   type="button"
                   variant={panelTab === 'expediente' ? 'default' : 'ghost'}
                 >
-                  Expediente
+                  Expediente ({shortlistCount})
                 </Button>
               </div>
 
@@ -649,60 +666,56 @@ export default function ContactsPage() {
                   <h4 className="font-semibold">Expediente</h4>
                   {shortlistQuery.isLoading ? <div className="h-20 animate-pulse rounded-md bg-muted" /> : null}
                   {shortlistQuery.data?.length === 0 ? (
-                    <p className="rounded-md border p-4 text-sm text-muted-foreground">
-                      Todavia no hay propiedades guardadas para este cliente.
-                    </p>
+                    <div className="grid place-items-center gap-3 rounded-md border p-6 text-center">
+                      <FolderOpen className="h-10 w-10 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Sin propiedades guardadas para este cliente
+                      </p>
+                      <Button onClick={() => router.push('/properties')} type="button" variant="outline">
+                        Buscar propiedades
+                      </Button>
+                    </div>
                   ) : null}
-                  {shortlistQuery.data?.map((item) => {
-                    const title = item.property_title || item.external_data?.title || 'Propiedad guardada'
-                    const source = item.property_source || item.external_data?.source || 'internal'
-
-                    return (
-                      <div className="grid gap-3 rounded-md border p-3" key={item.id}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium">{title}</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <Badge
-                                className={
-                                  source === 'internal'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-blue-100 text-blue-800'
-                                }
-                              >
-                                {source === 'internal' ? 'EXCLUSIVA' : 'AGENCIA'}
-                              </Badge>
-                              <Badge>
-                                {shortlistStatusOptions.find((option) => option.value === item.status)?.label}
-                              </Badge>
-                            </div>
-                          </div>
-                          <select
-                            className="h-9 rounded-md border bg-background px-2 text-xs"
-                            onChange={(event) =>
-                              updateShortlistItem.mutate({
-                                id: item.id,
-                                payload: { status: event.target.value as ShortlistStatus }
-                              })
-                            }
-                            value={item.status}
-                          >
-                            {shortlistStatusOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {item.notes ? <p className="text-sm text-muted-foreground">{item.notes}</p> : null}
-                        {item.status === 'interested' ? (
-                          <Button size="sm" variant="outline">
-                            Convertir en operacion
-                          </Button>
-                        ) : null}
-                      </div>
-                    )
-                  })}
+                  {shortlistQuery.data?.map((item) => (
+                    <ShortlistCard
+                      editingNoteId={editingNoteId}
+                      item={item}
+                      key={item.id}
+                      noteDraft={noteDraft}
+                      onCancelNote={() => {
+                        setEditingNoteId(null)
+                        setNoteDraft('')
+                      }}
+                      onConvert={() => {
+                        window.alert('Modal de nueva operacion pendiente de conectar.')
+                      }}
+                      onDelete={() => {
+                        if (window.confirm('Quieres eliminar esta propiedad del expediente?')) {
+                          removeFromShortlist.mutate(item.id)
+                        }
+                      }}
+                      onEditNote={() => {
+                        setEditingNoteId(item.id)
+                        setNoteDraft(item.notes ?? '')
+                      }}
+                      onOpen={() => openShortlistItem(item, router.push)}
+                      onSaveNote={() => {
+                        updateShortlistItem.mutate({
+                          id: item.id,
+                          payload: { notes: noteDraft }
+                        })
+                        setEditingNoteId(null)
+                        setNoteDraft('')
+                      }}
+                      onStatusChange={(status) =>
+                        updateShortlistItem.mutate({
+                          id: item.id,
+                          payload: { status }
+                        })
+                      }
+                      onUpdateNote={setNoteDraft}
+                    />
+                  ))}
                 </section>
               )}
             </div>
@@ -749,6 +762,128 @@ const Field = ({
     {error ? <p className="text-xs text-destructive">{error}</p> : null}
   </div>
 )
+
+const ShortlistCard = ({
+  editingNoteId,
+  item,
+  noteDraft,
+  onCancelNote,
+  onConvert,
+  onDelete,
+  onEditNote,
+  onOpen,
+  onSaveNote,
+  onStatusChange,
+  onUpdateNote
+}: {
+  editingNoteId: string | null
+  item: ShortlistItem
+  noteDraft: string
+  onCancelNote: () => void
+  onConvert: () => void
+  onDelete: () => void
+  onEditNote: () => void
+  onOpen: () => void
+  onSaveNote: () => void
+  onStatusChange: (status: ShortlistStatus) => void
+  onUpdateNote: (value: string) => void
+}) => {
+  const source = item.property_source || item.external_data?.source || 'internal'
+  const title = item.property_title || item.external_data?.title || 'Propiedad guardada'
+  const price = item.property_price ?? item.external_data?.price
+  const rooms = item.property_rooms ?? item.external_data?.rooms
+  const surface = item.property_surface_m2 ?? item.external_data?.surface_m2
+  const imageUrl =
+    item.property_images?.[0]?.url ||
+    item.external_data?.image_url ||
+    item.external_data?.images?.[0]?.url
+  const isInternal = source === 'internal'
+
+  return (
+    <div className="grid gap-3 rounded-md border p-3">
+      <div className="grid grid-cols-[56px_1fr] gap-3">
+        <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-md bg-muted">
+          {imageUrl ? (
+            <img alt={title} className="h-full w-full object-cover" src={imageUrl} />
+          ) : (
+            <Home className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="line-clamp-2 font-medium">{title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {price ? `EUR ${new Intl.NumberFormat('es-ES').format(Number(price))}` : 'Precio no disponible'}
+            {rooms ? ` - ${rooms} hab` : ''}
+            {surface ? ` - ${surface} m2` : ''}
+          </p>
+          <Badge className={cn('mt-2', isInternal ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800')}>
+            {isInternal ? 'EXCLUSIVA' : 'AGENCIA'}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <Label>Estado</Label>
+        <select
+          className="h-10 rounded-md border bg-background px-3 text-sm"
+          onChange={(event) => onStatusChange(event.target.value as ShortlistStatus)}
+          value={item.status}
+        >
+          {shortlistStatusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {item.status === 'interested' ? (
+          <Button className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={onConvert} size="sm" type="button">
+            + Convertir en operacion
+          </Button>
+        ) : null}
+      </div>
+
+      {editingNoteId === item.id ? (
+        <div className="grid gap-2">
+          <Input onChange={(event) => onUpdateNote(event.target.value)} value={noteDraft} />
+          <div className="flex gap-2">
+            <Button onClick={onSaveNote} size="sm" type="button">
+              Guardar nota
+            </Button>
+            <Button onClick={onCancelNote} size="sm" type="button" variant="outline">
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : item.notes ? (
+        <p className="rounded-md bg-muted/50 p-2 text-sm text-muted-foreground">{item.notes}</p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onOpen} size="sm" type="button" variant="outline">
+          Ver
+        </Button>
+        <Button onClick={onEditNote} size="sm" type="button" variant="outline">
+          Nota
+        </Button>
+        <Button onClick={onDelete} size="sm" type="button" variant="outline">
+          Eliminar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+const openShortlistItem = (item: ShortlistItem, navigate: (href: string) => void) => {
+  if (item.property_source === 'internal' && item.property_id) {
+    navigate(`/properties?propertyId=${item.property_id}`)
+    return
+  }
+
+  const url = item.property_source_url || item.external_data?.source_url
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
 
 const Info = ({ label, value }: { label: string; value?: string | null }) => (
   <div>

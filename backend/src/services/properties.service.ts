@@ -606,7 +606,24 @@ export const listShortlist = async (db: PoolClient, contactId?: string) => {
   const where = contactId ? 'WHERE ps.contact_id = $1' : ''
   if (contactId) values.push(contactId)
   const { rows } = await db.query(
-    `SELECT ps.*, c.full_name AS contact_name, p.title AS property_title, p.source AS property_source, p.price AS property_price
+    `SELECT
+       ps.*,
+       c.full_name AS contact_name,
+       p.title AS property_title,
+       p.source AS property_source,
+       p.price AS property_price,
+       p.operation AS property_operation,
+       p.bedrooms AS property_rooms,
+       p.sqm AS property_surface_m2,
+       p.source_url AS property_source_url,
+       COALESCE(
+         (
+           SELECT json_agg(pi ORDER BY pi.created_at)
+           FROM property_images pi
+           WHERE pi.property_id = p.id
+         ),
+         '[]'::json
+       ) AS property_images
      FROM property_shortlist ps
      LEFT JOIN contacts c ON c.id = ps.contact_id
      LEFT JOIN properties p ON p.id = ps.property_id

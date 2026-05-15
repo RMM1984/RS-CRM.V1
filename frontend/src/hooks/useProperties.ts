@@ -238,6 +238,25 @@ export const useRemoveFromShortlist = () => {
 
       return unwrap(response.data)
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['shortlist'] })
+      const previous = queryClient.getQueriesData<ShortlistItem[]>({ queryKey: ['shortlist'] })
+
+      previous.forEach(([key, data]) => {
+        if (!data) return
+        queryClient.setQueryData<ShortlistItem[]>(
+          key,
+          data.filter((item) => item.id !== id)
+        )
+      })
+
+      return { previous }
+    },
+    onError: (_err, _id, context) => {
+      context?.previous.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data)
+      })
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['shortlist'] })
     }

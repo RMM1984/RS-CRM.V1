@@ -16,6 +16,7 @@ import {
   Upload,
   X
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -143,6 +144,7 @@ const initials = (title: string) =>
     .toUpperCase()
 
 export default function PropertiesPage() {
+  const router = useRouter()
   const [filters, setFilters] = useState<PropertyFilters>({
     operation: 'all',
     status: 'all',
@@ -163,6 +165,7 @@ export default function PropertiesPage() {
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
   const [shortlistTarget, setShortlistTarget] = useState<Property | ExternalProperty | null>(null)
+  const [toast, setToast] = useState<{ contactId: string; contactName: string } | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
 
   const propertiesQuery = useProperties(filters)
@@ -274,6 +277,7 @@ export default function PropertiesPage() {
   const onSaveToShortlist = async (values: ShortlistForm) => {
     if (!shortlistTarget) return
     const isExternal = 'source_url' in shortlistTarget && shortlistTarget.source !== 'internal'
+    const selectedContact = contactsQuery.data?.contacts.find((contact) => contact.id === values.contact_id)
 
     await saveToShortlist.mutateAsync({
       contact_id: values.contact_id,
@@ -282,6 +286,10 @@ export default function PropertiesPage() {
       notes: values.notes || null
     })
 
+    setToast({
+      contactId: values.contact_id,
+      contactName: selectedContact?.name ?? 'este cliente'
+    })
     shortlistForm.reset({ contact_id: '', notes: '' })
     setShortlistTarget(null)
   }
@@ -473,6 +481,29 @@ export default function PropertiesPage() {
           onSubmit={onSaveToShortlist}
           propertyTitle={shortlistTarget.title}
         />
+      ) : null}
+
+      {toast ? (
+        <div className="fixed bottom-5 right-5 z-[60] w-[360px] rounded-md border bg-card p-4 shadow-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold">Guardado en el expediente de {toast.contactName}</p>
+              <button
+                className="mt-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                onClick={() => {
+                  router.push(`/contacts?contactId=${toast.contactId}&tab=expediente`)
+                  setToast(null)
+                }}
+                type="button"
+              >
+                Ver expediente
+              </button>
+            </div>
+            <Button onClick={() => setToast(null)} size="icon" variant="ghost">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       <aside
