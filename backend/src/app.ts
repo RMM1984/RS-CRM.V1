@@ -1,5 +1,6 @@
 import cors from 'cors'
 import express from 'express'
+import { pool } from './config/db'
 import { env } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
 import { setSchema } from './middleware/setSchema'
@@ -21,6 +22,28 @@ app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'rs-crm-backend' })
+})
+
+app.get('/health/db', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        now() AS checked_at,
+        (SELECT count(*)::int FROM public.tenants) AS tenants,
+        (SELECT count(*)::int FROM public.users) AS users
+    `)
+
+    res.json({ ok: true, database: rows[0] })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({
+      ok: false,
+      error: {
+        message: 'Database health check failed',
+        details: err instanceof Error ? err.message : String(err)
+      }
+    })
+  }
 })
 
 app.use('/api/auth', authRoutes)

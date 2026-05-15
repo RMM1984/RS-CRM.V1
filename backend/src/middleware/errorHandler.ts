@@ -17,7 +17,12 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     ok: false,
     error: {
       message: 'Internal server error',
-      details: env.NODE_ENV === 'production' ? undefined : String(err)
+      details:
+        env.NODE_ENV === 'production' && !process.env.SHOW_ERROR_DETAILS
+          ? undefined
+          : err instanceof Error
+            ? err.message
+            : String(err)
     }
   })
 }
