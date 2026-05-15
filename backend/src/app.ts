@@ -21,7 +21,11 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
 app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'rs-crm-backend' })
+  res.json({
+    ok: true,
+    service: 'rs-crm-backend',
+    version: 'health-db-diagnostics'
+  })
 })
 
 app.get('/health/db', async (_req, res) => {
