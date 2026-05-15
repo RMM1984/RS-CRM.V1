@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import type { ExternalProperty } from '@/types/properties'
 
 export default function ExternalPropertyPage({ params }: { params: { id: string } }) {
@@ -34,7 +35,7 @@ export default function ExternalPropertyPage({ params }: { params: { id: string 
     <div className="grid gap-5">
       <div className="flex items-center justify-between">
         <div>
-          <Badge className="bg-blue-600 text-white">AGENCIA {property.source}</Badge>
+          <Badge className="bg-blue-600 text-white">AGENCIA {formatPropertySource(property.source)}</Badge>
           <h2 className="mt-3 text-3xl font-semibold">{property.title}</h2>
           <p className="text-sm text-muted-foreground">{property.city}</p>
         </div>
@@ -58,10 +59,7 @@ export default function ExternalPropertyPage({ params }: { params: { id: string 
 
         <div className="grid gap-4">
           <Card className="p-5">
-            <p className="text-3xl font-semibold">
-              EUR {new Intl.NumberFormat('es-ES').format(property.price)}
-              {property.operation === 'rent' ? '/mes' : ''}
-            </p>
+            <p className="text-3xl font-semibold">{formatPropertyPrice(property.price, property.operation)}</p>
             <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
               <Info label="Tipo" value={property.type} />
               <Info label="m2" value={property.surface_m2 ? `${property.surface_m2}` : '-'} />

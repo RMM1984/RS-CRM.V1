@@ -32,7 +32,7 @@ export const Header = () => {
         </Avatar>
         <Button className="gap-2" onClick={logout} size="sm" variant="ghost">
           <LogOut className="h-4 w-4" />
-          Logout
+          Cerrar sesion
         </Button>
       </div>
     </header>

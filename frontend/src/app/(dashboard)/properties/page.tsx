@@ -37,6 +37,7 @@ import {
   useUpdateProperty,
   useUploadPropertyImage
 } from '@/hooks/useProperties'
+import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
 import type {
   CreatePropertyDto,
@@ -110,13 +111,6 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   sooprema: 'Sooprema',
   crown_property: 'Crown Property',
   other: 'agencias'
-}
-
-const formatPrice = (price: number | string, operation: PropertyOperation) => {
-  const value = Number(price)
-  const formatted = new Intl.NumberFormat('es-ES').format(Number.isFinite(value) ? value : 0)
-
-  return operation === 'rent' ? `EUR ${formatted}/mes` : `EUR ${formatted}`
 }
 
 const asNumber = (value: unknown) => {
@@ -542,7 +536,7 @@ export default function PropertiesPage() {
               <p className="text-sm text-muted-foreground">
                 {selectedProperty.address}, {selectedProperty.city}
               </p>
-              <p className="mt-3 text-3xl font-semibold">{formatPrice(selectedProperty.price, selectedProperty.operation)}</p>
+              <p className="mt-3 text-3xl font-semibold">{formatPropertyPrice(selectedProperty.price, selectedProperty.operation)}</p>
               <FeatureGrid property={selectedProperty} />
               <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                 {selectedProperty.description || 'Sin descripcion.'}
@@ -713,7 +707,7 @@ const PropertyCard = ({
         <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
         <p className="text-sm text-muted-foreground">{property.city}</p>
       </div>
-      <p className="text-lg font-semibold text-foreground">{formatPrice(property.price, property.operation)}</p>
+      <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
       <FeatureRow property={property} />
       <p className="text-xs text-muted-foreground">Agente: {property.assigned_to || '-'}</p>
       <div className="mt-auto grid grid-cols-4 gap-1">
@@ -745,14 +739,16 @@ const ExternalCard = ({ onSave, property }: { onSave: () => void; property: Exte
         ) : (
           <Home className="h-14 w-14 text-blue-500" />
         )}
-        <Badge className="absolute left-3 top-3 bg-blue-600 text-white shadow-sm">AGENCIA {property.source}</Badge>
+        <Badge className="absolute left-3 top-3 bg-blue-600 text-white shadow-sm">
+          AGENCIA {formatPropertySource(property.source)}
+        </Badge>
       </div>
       <div className="flex flex-1 flex-col gap-3 bg-card p-4">
         <div className="min-h-[68px]">
           <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
           <p className="text-sm text-muted-foreground">{property.city}</p>
         </div>
-        <p className="text-lg font-semibold text-foreground">{formatPrice(property.price, property.operation)}</p>
+        <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
         <FeatureRow property={property} />
         <div className="mt-auto grid grid-cols-2 gap-2">
           <Button asChild variant="outline">

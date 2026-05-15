@@ -23,6 +23,7 @@ import {
   useUpdateContact
 } from '@/hooks/useContacts'
 import { useRemoveFromShortlist, useShortlist, useUpdateShortlistItem } from '@/hooks/useProperties'
+import { formatPropertyPrice } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
 import type {
   AddInteractionDto,
@@ -821,7 +822,7 @@ const ShortlistCard = ({
         <div className="min-w-0">
           <p className="line-clamp-2 font-medium">{title}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {price ? `EUR ${new Intl.NumberFormat('es-ES').format(Number(price))}` : 'Precio no disponible'}
+            {price ? formatPropertyPrice(price, item.property_operation || item.external_data?.operation) : 'Precio no disponible'}
             {rooms ? ` - ${rooms} hab` : ''}
             {surface ? ` - ${surface} m2` : ''}
           </p>

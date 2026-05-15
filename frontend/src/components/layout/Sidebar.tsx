@@ -57,7 +57,7 @@ export const Sidebar = () => {
         <p className="mt-1 text-xs uppercase text-muted-foreground">{user?.role ?? 'agent'}</p>
         <Button className="mt-3 w-full justify-start gap-2" onClick={logout} variant="outline">
           <LogOut className="h-4 w-4" />
-          Logout
+          Cerrar sesion
         </Button>
       </div>
     </aside>
