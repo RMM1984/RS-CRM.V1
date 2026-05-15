@@ -1,23 +1,53 @@
 import type { RequestHandler } from 'express'
 import { z } from 'zod'
 import * as contactsService from '../services/contacts.service'
-import { error, success } from '../utils/response'
 
-const contactSchema = z.object({
-  full_name: z.string().min(2),
-  email: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  type: z.enum(['buyer', 'seller', 'landlord', 'tenant', 'investor']).default('buyer'),
-  stage: z.string().default('new'),
-  source: z.string().optional().nullable(),
-  budget_min: z.number().optional().nullable(),
-  budget_max: z.number().optional().nullable(),
-  notes: z.string().optional().nullable()
+const contactTypeSchema = z.enum(['comprador', 'vendedor', 'inquilino', 'propietario', 'ambos'])
+const contactStatusSchema = z.enum(['activo', 'frio', 'cerrado'])
+const contactSourceSchema = z.enum(['web', 'referral', 'portal', 'manual'])
+const interactionTypeSchema = z.enum(['call', 'email', 'note', 'whatsapp', 'visit'])
+
+const listQuerySchema = z.object({
+  type: contactTypeSchema.optional(),
+  status: contactStatusSchema.optional(),
+  assigned_to: z.string().uuid().optional(),
+  search: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20)
 })
+
+const createContactSchema = z.object({
+  name: z.string().trim().min(2),
+  phone: z.string().trim().optional().nullable(),
+  email: z.string().trim().email().optional().nullable(),
+  type: contactTypeSchema,
+  source: contactSourceSchema.optional().nullable(),
+  status: contactStatusSchema.default('activo'),
+  notes: z.string().trim().optional().nullable(),
+  assigned_to: z.string().uuid().optional().nullable()
+})
+
+const updateContactSchema = createContactSchema.partial()
+
+const interactionSchema = z.object({
+  type: interactionTypeSchema,
+  content: z.string().trim().min(1)
+})
+
+const idSchema = z.string().uuid()
+
+const sendSuccess = <T>(res: Parameters<RequestHandler>[1], data: T, status = 200) =>
+  res.status(status).json({ success: true, data })
+
+const sendError = (res: Parameters<RequestHandler>[1], message: string, status = 404) =>
+  res.status(status).json({ success: false, error: { message } })
 
 export const list: RequestHandler = async (req, res, next) => {
   try {
-    return success(res, await contactsService.listContacts(req.db!))
+    const query = listQuerySchema.parse(req.query)
+    const data = await contactsService.listContacts(req.db!, query, req.user!)
+
+    return sendSuccess(res, data)
   } catch (err) {
     return next(err)
   }
@@ -25,9 +55,10 @@ export const list: RequestHandler = async (req, res, next) => {
 
 export const get: RequestHandler = async (req, res, next) => {
   try {
-    const id = z.string().uuid().parse(req.params.id)
-    const contact = await contactsService.getContact(req.db!, id)
-    return contact ? success(res, contact) : error(res, 'Contact not found', 404)
+    const id = idSchema.parse(req.params.id)
+    const contact = await contactsService.getContact(req.db!, id, req.user!)
+
+    return contact ? sendSuccess(res, contact) : sendError(res, 'Contacto no encontrado')
   } catch (err) {
     return next(err)
   }
@@ -35,7 +66,10 @@ export const get: RequestHandler = async (req, res, next) => {
 
 export const create: RequestHandler = async (req, res, next) => {
   try {
-    return success(res, await contactsService.createContact(req.db!, contactSchema.parse(req.body)), 201)
+    const body = createContactSchema.parse(req.body)
+    const contact = await contactsService.createContact(req.db!, body, req.user!)
+
+    return sendSuccess(res, contact, 201)
   } catch (err) {
     return next(err)
   }
@@ -43,13 +77,47 @@ export const create: RequestHandler = async (req, res, next) => {
 
 export const update: RequestHandler = async (req, res, next) => {
   try {
-    const id = z.string().uuid().parse(req.params.id)
-    const contact = await contactsService.updateContact(
-      req.db!,
-      id,
-      contactSchema.partial().parse(req.body)
-    )
-    return contact ? success(res, contact) : error(res, 'Contact not found', 404)
+    const id = idSchema.parse(req.params.id)
+    const body = updateContactSchema.parse(req.body)
+    const contact = await contactsService.updateContact(req.db!, id, body, req.user!)
+
+    return contact ? sendSuccess(res, contact) : sendError(res, 'Contacto no encontrado')
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const remove: RequestHandler = async (req, res, next) => {
+  try {
+    const id = idSchema.parse(req.params.id)
+    const contact = await contactsService.deleteContact(req.db!, id, req.user!)
+
+    return contact ? sendSuccess(res, contact) : sendError(res, 'Contacto no encontrado')
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const addInteraction: RequestHandler = async (req, res, next) => {
+  try {
+    const id = idSchema.parse(req.params.id)
+    const body = interactionSchema.parse(req.body)
+    const interaction = await contactsService.addInteraction(req.db!, id, body, req.user!)
+
+    return interaction
+      ? sendSuccess(res, interaction, 201)
+      : sendError(res, 'Contacto no encontrado')
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const listInteractions: RequestHandler = async (req, res, next) => {
+  try {
+    const id = idSchema.parse(req.params.id)
+    const interactions = await contactsService.listInteractions(req.db!, id, req.user!)
+
+    return sendSuccess(res, { interactions })
   } catch (err) {
     return next(err)
   }
