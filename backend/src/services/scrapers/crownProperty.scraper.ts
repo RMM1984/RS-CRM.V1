@@ -17,9 +17,21 @@ export const cache = {
   TTL: 30 * 60 * 1000
 }
 
-const typeDictionary: Record<'apartment' | 'house', string[]> = {
-  apartment: ['piso', 'apartamento', 'apto', 'flat', 'apartment', 'wohnung', 'appartement'],
-  house: ['chalet', 'villa', 'casa', 'finca', 'house', 'haus', 'maison', 'huis']
+const typeDictionary: Record<'house' | 'apartment', string[]> = {
+  house: [
+    'villa', 'chalet', 'casa', 'finca', 'adosado',
+    'unifamiliar', 'bungalow',
+    'house', 'detached', 'cottage', 'townhouse',
+    'haus', 'ferienhaus', 'landhaus',
+    'huis', 'woning', 'boerderij',
+    'maison', 'pavillon', 'mas'
+  ],
+  apartment: [
+    'piso', 'apartamento', 'apto', 'estudio', 'bajo',
+    'apartment', 'flat', 'studio',
+    'wohnung',
+    'appartement'
+  ]
 }
 
 const operationDictionary: Record<'sale' | 'rent', string[]> = {
@@ -86,9 +98,21 @@ const iconValue = ($: CheerioAPI, card: cheerio.Cheerio<AnyNode>, iconTitle: str
 
 const refFromUrl = (url: string) => url.match(/(\d+)\/?$/)?.[1] ?? ''
 
+const splitWords = (text: string) => text.split(/\s+/).filter(Boolean)
+
+const includesWholeTerm = (text: string, term: string) => {
+  const normalizedTerm = normalizeText(term)
+
+  if (normalizedTerm.includes(' ')) {
+    return new RegExp(`(^|\\s)${normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|\\s)`).test(text)
+  }
+
+  return splitWords(text).some((word) => word === normalizedTerm)
+}
+
 const inferType = (searchText: string) => {
-  if (typeDictionary.apartment.some((term) => searchText.includes(term))) return 'apartment'
-  if (typeDictionary.house.some((term) => searchText.includes(term))) return 'house'
+  if (typeDictionary.house.some((term) => includesWholeTerm(searchText, term))) return 'house'
+  if (typeDictionary.apartment.some((term) => includesWholeTerm(searchText, term))) return 'apartment'
 
   return 'house'
 }
@@ -219,7 +243,7 @@ export function parseCrownSearchQuery(query: string): CrownSearchKeywords {
   const consumed = new Set<string>()
 
   for (const [type, words] of Object.entries(typeDictionary) as Array<[CrownSearchKeywords['type'], string[]]>) {
-    if (words.some((word) => text.includes(word))) {
+    if (words.some((word) => includesWholeTerm(text, word))) {
       keywords.type = type
       words.forEach((word) => consumed.add(word))
       break
@@ -267,7 +291,6 @@ export function parseCrownSearchQuery(query: string): CrownSearchKeywords {
 
 export function searchCrownProperties(query: string): ExternalProperty[] {
   const keywords = parseCrownSearchQuery(query)
-  const typeWords = keywords.type ? typeDictionary[keywords.type] : []
 
   return cache.data
     .map((property) => {
@@ -281,7 +304,7 @@ export function searchCrownProperties(query: string): ExternalProperty[] {
         return null
       }
       if (keywords.rooms_min !== undefined && property.rooms !== null && property.rooms < keywords.rooms_min) return null
-      if (typeWords.length && !typeWords.some((term) => property.search_text.includes(term))) return null
+      if (keywords.type && property.type !== keywords.type) return null
 
       const score = keywords.terms.reduce(
         (total, term) => total + (property.search_text.includes(term) ? 1 : 0),

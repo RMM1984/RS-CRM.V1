@@ -157,6 +157,18 @@ const normalizeUiText = (text: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
+const splitUiWords = (text: string) => text.split(/\s+/).filter(Boolean)
+
+const uiHasWholeTerm = (text: string, term: string) => {
+  const normalizedTerm = normalizeUiText(term)
+
+  if (normalizedTerm.includes(' ')) {
+    return new RegExp(`(^|\\s)${normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|\\s)`).test(text)
+  }
+
+  return splitUiWords(text).some((word) => word === normalizedTerm)
+}
+
 const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFilters) => {
   if (filters.source && filters.source !== 'all' && filters.source !== 'other' && property.source !== filters.source) {
     return false
@@ -170,6 +182,12 @@ const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFil
     const type = normalizeUiText(String(property.type))
     const text = normalizeUiText(`${property.title} ${property.zone ?? ''} ${property.search_text ?? ''}`)
     const selectedType = filters.type
+    const expectedType =
+      selectedType === 'villa' || selectedType === 'chalet'
+        ? 'house'
+        : selectedType === 'piso' || selectedType === 'apartamento'
+          ? 'apartment'
+          : selectedType
     const family =
       selectedType === 'villa' || selectedType === 'chalet'
         ? ['house', 'villa', 'chalet', 'casa', 'finca']
@@ -177,7 +195,7 @@ const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFil
           ? ['apartment', 'piso', 'apartamento', 'apto', 'atico']
           : [selectedType]
 
-    if (!family.some((term) => type.includes(term) || text.includes(term))) {
+    if (type !== expectedType && !family.some((term) => uiHasWholeTerm(text, term))) {
       return false
     }
   }

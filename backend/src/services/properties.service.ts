@@ -309,42 +309,39 @@ export const deletePropertyImage = async (db: PoolClient, imageId: string) => {
 
 type KeywordDictionary = Record<string, Record<string, string[]>>
 
-const propertyTypeKeywords: KeywordDictionary = {
-  apartment: {
-    es: ['piso', 'apartamento', 'apto', 'estudio', 'bajo'],
-    en: ['apartment', 'flat', 'studio'],
-    de: ['wohnung', 'apartment', 'studio'],
-    nl: ['appartement', 'flat', 'studio'],
-    fr: ['appartement', 'studio', 'flat']
-  },
-  house: {
-    es: ['chalet', 'villa', 'casa', 'finca', 'adosado', 'unifamiliar'],
-    en: ['house', 'villa', 'chalet', 'cottage', 'townhouse', 'detached'],
-    de: ['haus', 'villa', 'chalet', 'ferienhaus', 'landhaus'],
-    nl: ['huis', 'villa', 'chalet', 'woning', 'boerderij'],
-    fr: ['maison', 'villa', 'chalet', 'pavillon', 'mas']
-  },
-  commercial: {
-    es: ['local', 'comercial', 'oficina', 'negocio'],
-    en: ['commercial', 'office', 'shop', 'business', 'retail'],
-    de: ['gewerbe', 'buro', 'laden', 'geschaft'],
-    nl: ['bedrijf', 'kantoor', 'winkel', 'commercieel'],
-    fr: ['commerce', 'bureau', 'local', 'boutique']
-  },
-  land: {
-    es: ['parcela', 'terreno', 'solar', 'finca rustica'],
-    en: ['land', 'plot', 'terrain', 'field'],
-    de: ['grundstuck', 'land', 'parzelle'],
-    nl: ['grond', 'perceel', 'kavel'],
-    fr: ['terrain', 'parcelle', 'fonds']
-  },
-  garage: {
-    es: ['garaje', 'parking', 'plaza'],
-    en: ['garage', 'parking'],
-    de: ['garage', 'parkplatz', 'stellplatz'],
-    nl: ['garage', 'parkeerplaats'],
-    fr: ['garage', 'parking', 'place']
-  }
+const TYPE_KEYWORDS: Record<string, string[]> = {
+  house: [
+    'villa', 'chalet', 'casa', 'finca', 'adosado',
+    'unifamiliar', 'bungalow',
+    'house', 'detached', 'cottage', 'townhouse',
+    'haus', 'ferienhaus', 'landhaus',
+    'huis', 'woning', 'boerderij',
+    'maison', 'pavillon', 'mas'
+  ],
+  apartment: [
+    'piso', 'apartamento', 'apto', 'estudio', 'bajo',
+    'apartment', 'flat', 'studio',
+    'wohnung',
+    'appartement'
+  ],
+  commercial: [
+    'local', 'oficina', 'negocio',
+    'office', 'shop', 'retail', 'commercial',
+    'buro', 'laden', 'gewerbe',
+    'kantoor', 'winkel',
+    'bureau', 'boutique', 'commerce'
+  ],
+  land: [
+    'parcela', 'terreno', 'solar',
+    'plot', 'land', 'terrain',
+    'grundstuck', 'parzelle',
+    'perceel', 'grond'
+  ],
+  garage: [
+    'garaje', 'parking', 'plaza de parking',
+    'garage', 'parkplatz',
+    'parkeerplaats'
+  ]
 }
 
 const operationKeywords: KeywordDictionary = {
@@ -434,6 +431,30 @@ const includesTerm = (text: string, term: string) => {
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const splitWords = (text: string) => text.split(/\s+/).filter(Boolean)
+
+const includesWholeTypeTerm = (text: string, term: string) => {
+  const normalizedTerm = normalizeText(term)
+
+  if (normalizedTerm.includes(' ')) {
+    return new RegExp(`(^|\\s)${escapeRegExp(normalizedTerm)}($|\\s)`).test(text)
+  }
+
+  return splitWords(text).some((word) => word === normalizedTerm)
+}
+
+const findTypeMatch = (text: string) => {
+  for (const [value, terms] of Object.entries(TYPE_KEYWORDS)) {
+    const term = terms.find((candidate) => includesWholeTypeTerm(text, candidate))
+
+    if (term) {
+      return { value, language: 'unknown', term: normalizeText(term) }
+    }
+  }
+
+  return undefined
+}
+
 const normalizedSql = (column: string) =>
   `translate(lower(coalesce(${column}, '')), 'áàâäéèêëíìîïóòôöúùûüñ', 'aaaaeeeeiiiioooouuuun')`
 
@@ -514,7 +535,7 @@ const detectPriceMax = (text: string) => {
 
 export const parseSearchQuery = (query: string): SearchParams => {
   const text = normalizeText(query)
-  const typeMatch = findDictionaryMatch(text, propertyTypeKeywords)
+  const typeMatch = findTypeMatch(text)
   const operationMatch = findDictionaryMatch(text, operationKeywords)
   const featureMatches = findAllDictionaryMatches(text, featureKeywords)
   const rawTerms = knownAreaTerms.filter((term) => includesTerm(text, term))
