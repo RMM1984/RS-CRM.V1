@@ -175,6 +175,7 @@ export default function ContactsPage() {
   const [panelTab, setPanelTab] = useState<'actividad' | 'expediente'>('actividad')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
+  const [operationItem, setOperationItem] = useState<ShortlistItem | null>(null)
 
   const contactsQuery = useContacts(filters)
   const contactQuery = useContact(selectedContactId)
@@ -687,7 +688,7 @@ export default function ContactsPage() {
                         setNoteDraft('')
                       }}
                       onConvert={() => {
-                        window.alert('Modal de nueva operacion pendiente de conectar.')
+                        setOperationItem(item)
                       }}
                       onDelete={() => {
                         if (window.confirm('Quieres eliminar esta propiedad del expediente?')) {
@@ -743,6 +744,14 @@ export default function ContactsPage() {
           </form>
         </div>
       </aside>
+
+      {operationItem && selectedContact ? (
+        <OperationModal
+          contactName={selectedContact.name}
+          item={operationItem}
+          onClose={() => setOperationItem(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -883,6 +892,49 @@ const openShortlistItem = (item: ShortlistItem, navigate: (href: string) => void
   if (url) {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
+}
+
+const OperationModal = ({
+  contactName,
+  item,
+  onClose
+}: {
+  contactName: string
+  item: ShortlistItem
+  onClose: () => void
+}) => {
+  const title = item.property_title || item.external_data?.title || 'Propiedad guardada'
+  const operation = item.property_operation || item.external_data?.operation || 'sale'
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/40 p-4">
+      <Card className="w-full max-w-lg p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-xl font-semibold">Nueva operacion</h3>
+          <Button onClick={onClose} size="icon" variant="ghost">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="grid gap-4">
+          <Info label="Cliente" value={contactName} />
+          <Info label="Propiedad" value={title} />
+          <Info label="Tipo" value={operation === 'rent' ? 'Alquiler' : 'Venta'} />
+          <Info label="contact_id" value={item.contact_id} />
+          <Info label="property_id" value={item.property_id ?? 'Propiedad externa'} />
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            La operacion queda preparada con los datos del expediente. El guardado final se conectara al modulo de
+            Operaciones cuando ese formulario este activo.
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button onClick={onClose} variant="outline">
+              Cancelar
+            </Button>
+            <Button disabled>Crear operacion</Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
 }
 
 const Info = ({ label, value }: { label: string; value?: string | null }) => (
