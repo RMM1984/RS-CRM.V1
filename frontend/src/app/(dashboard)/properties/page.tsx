@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
@@ -114,6 +114,19 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   other: 'agencias'
 }
 
+const filterTypeLabels: Record<string, string> = {
+  piso: 'piso',
+  apartamento: 'apartamento',
+  chalet: 'chalet',
+  villa: 'villa',
+  local: 'local'
+}
+
+const filterOperationLabels: Record<string, string> = {
+  sale: 'venta',
+  rent: 'alquiler'
+}
+
 const asNumber = (value: unknown) => {
   if (value === '' || value === undefined || value === null) return null
   return Number(value)
@@ -137,6 +150,40 @@ const initials = (title: string) =>
     .map((part) => part[0])
     .join('')
     .toUpperCase()
+
+const normalizeUiText = (text: string) =>
+  text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFilters) => {
+  if (filters.source && filters.source !== 'all' && filters.source !== 'other' && property.source !== filters.source) {
+    return false
+  }
+
+  if (filters.operation && filters.operation !== 'all' && property.operation !== filters.operation) {
+    return false
+  }
+
+  if (filters.type && filters.type !== 'all') {
+    const type = normalizeUiText(String(property.type))
+    const text = normalizeUiText(`${property.title} ${property.zone ?? ''} ${property.search_text ?? ''}`)
+    const selectedType = filters.type
+    const family =
+      selectedType === 'villa' || selectedType === 'chalet'
+        ? ['house', 'villa', 'chalet', 'casa', 'finca']
+        : selectedType === 'piso' || selectedType === 'apartamento'
+          ? ['apartment', 'piso', 'apartamento', 'apto', 'atico']
+          : [selectedType]
+
+    if (!family.some((term) => type.includes(term) || text.includes(term))) {
+      return false
+    }
+  }
+
+  return true
+}
 
 export default function PropertiesPage() {
   const router = useRouter()
@@ -168,6 +215,7 @@ export default function PropertiesPage() {
   const propertyQuery = useProperty(selectedPropertyId)
   const contactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', search: '' })
   const propertySearch = usePropertySearch(query)
+  const searchProperties = propertySearch.mutateAsync
   const createProperty = useCreateProperty()
   const updateProperty = useUpdateProperty()
   const deleteProperty = useDeleteProperty()
@@ -196,30 +244,58 @@ export default function PropertiesPage() {
 
   const baseProperties = propertiesQuery.data?.properties ?? []
   const internalProperties = searchResult ? searchResult.internal : baseProperties.filter((item) => item.source === 'internal')
-  const externalProperties: ExternalProperty[] = searchResult
-    ? searchResult.external
-    : baseProperties
-        .filter((item) => item.source !== 'internal')
-        .map((item) => ({
-          id: item.id,
-          title: item.title,
-          city: item.city,
-          price: Number(item.price),
-          operation: item.operation,
-          type: item.type,
-          source: item.source === 'internal' ? 'other' : item.source,
-          source_url: item.source_url || '#',
-          source_agency_name: item.source_agency_name || undefined,
-          source_agency_phone: item.source_agency_phone || undefined,
-          image_url: item.images?.[0]?.url,
-          images: item.images,
-          surface_m2: item.surface_m2 ? Number(item.surface_m2) : undefined,
-          rooms: item.rooms || undefined,
-          bathrooms: item.bathrooms || undefined,
-          description: item.description || undefined
-        }))
+  const localExternalProperties = baseProperties
+    .filter((item) => item.source !== 'internal')
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      city: item.city,
+      price: Number(item.price),
+      operation: item.operation,
+      type: item.type,
+      source: item.source === 'internal' ? 'other' : item.source,
+      source_url: item.source_url || '#',
+      source_agency_name: item.source_agency_name || undefined,
+      source_agency_phone: item.source_agency_phone || undefined,
+      image_url: item.images?.[0]?.url,
+      images: item.images,
+      surface_m2: item.surface_m2 ? Number(item.surface_m2) : null,
+      rooms: item.rooms ?? null,
+      bathrooms: item.bathrooms ?? null,
+      description: item.description || undefined,
+      ref: item.external_ref ?? '',
+      zone: item.address,
+      badge: item.external_badge,
+      search_text: `${item.title} ${item.address} ${item.external_badge ?? ''}`
+    })) satisfies ExternalProperty[]
+  const externalProperties: ExternalProperty[] =
+    filters.source === 'internal'
+      ? []
+      : (searchResult ? searchResult.external : localExternalProperties).filter((property) =>
+          externalMatchesFilters(property, filters)
+        )
   const total = searchResult ? internalProperties.length + externalProperties.length : propertiesQuery.data?.total ?? 0
   const selectedProperty = propertyQuery.data
+
+  const buildSearchQuery = useCallback(() => {
+    const terms = [query.trim()]
+
+    if (filters.type && filters.type !== 'all') {
+      terms.push(filterTypeLabels[filters.type] ?? filters.type)
+    }
+
+    if (filters.operation && filters.operation !== 'all') {
+      terms.push(filterOperationLabels[filters.operation] ?? filters.operation)
+    }
+
+    const searchQuery = terms.filter(Boolean).join(' ').trim()
+
+    if (!searchQuery && (filters.source === 'crown_property' || filters.source === 'other')) {
+      return 'javea'
+    }
+
+    return searchQuery
+  }, [filters.operation, filters.source, filters.type, query])
 
   useEffect(() => {
     if (!isPropertyModalOpen) return
@@ -245,23 +321,53 @@ export default function PropertiesPage() {
     }
   }, [isPropertyModalOpen, propertyForm, propertyModal])
 
-  const onSearch = async () => {
-    if (!query.trim()) {
+  const runSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
       setSearchResult(null)
       return
     }
 
-    const result = await propertySearch.mutateAsync()
+    const result = await searchProperties(searchQuery)
     const chips = [
       result.keywords.type,
       result.keywords.rooms_min ? `${result.keywords.rooms_min} hab` : null,
       result.keywords.city,
       result.keywords.price_max ? `max. ${new Intl.NumberFormat('es-ES').format(result.keywords.price_max)}` : null,
+      filters.type && filters.type !== 'all' ? filterTypeLabels[filters.type] ?? filters.type : null,
+      filters.operation && filters.operation !== 'all' ? filterOperationLabels[filters.operation] ?? filters.operation : null,
       ...result.keywords.features.slice(0, 4)
     ].filter(Boolean) as string[]
 
     setSearchResult({ keywords: chips, internal: result.internal, external: result.external })
+  }, [filters.operation, filters.type, searchProperties])
+
+  const onSearch = async () => {
+    await runSearch(buildSearchQuery())
   }
+
+  useEffect(() => {
+    const searchableFilterActive =
+      (filters.type && filters.type !== 'all') ||
+      (filters.operation && filters.operation !== 'all') ||
+      filters.source === 'crown_property' ||
+      filters.source === 'other'
+
+    if (filters.source === 'internal') {
+      setSearchResult(null)
+      return
+    }
+
+    if (!query.trim() && !searchableFilterActive) {
+      setSearchResult(null)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      void runSearch(buildSearchQuery())
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [buildSearchQuery, filters.operation, filters.source, filters.type, query, runSearch])
 
   const onSaveProperty = async (values: PropertyForm) => {
     const payload = normalizeProperty(values)

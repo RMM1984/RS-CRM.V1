@@ -69,8 +69,10 @@ export const useProperty = (id?: string | null) =>
 
 export const usePropertySearch = (query: string) =>
   useMutation({
-    mutationFn: async () => {
-      const response = await api.post<SuccessResponse<PropertySearchResult>>('/api/properties/search', { query })
+    mutationFn: async (overrideQuery?: string) => {
+      const response = await api.post<SuccessResponse<PropertySearchResult>>('/api/properties/search', {
+        query: overrideQuery ?? query
+      })
 
       return unwrap(response.data)
     }
