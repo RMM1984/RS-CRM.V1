@@ -45,10 +45,12 @@ export const useContacts = (filters: ContactFilters) =>
   useQuery({
     queryKey: contactsKey(filters),
     queryFn: async () => {
+      const search = filters.search?.trim()
       const params = {
         ...filters,
         type: filters.type === 'todos' ? undefined : filters.type,
-        status: filters.status === 'todos' ? undefined : filters.status
+        status: filters.status === 'todos' ? undefined : filters.status,
+        search: search ? search : undefined
       }
       const response = await api.get<SuccessResponse<ContactsPageData>>('/api/contacts', {
         params
