@@ -129,6 +129,37 @@ const absoluteUrl = (url?: string) => {
 const textOf = ($: CheerioAPI, node: cheerio.Cheerio<AnyNode>, selector: string) =>
   node.find(selector).first().text().replace(/\s+/g, ' ').trim()
 
+const isValidTitle = (value: string) => value.length > 5 && !/^\d+$/.test(value)
+
+const titleOf = ($: CheerioAPI, card: cheerio.Cheerio<AnyNode>, sourceUrl: string) => {
+  const selectors = [
+    '.property-15__title',
+    '.property-15__content-title',
+    '.property-15__info-title',
+    'h2',
+    'h3',
+    'a[title]',
+    'a'
+  ]
+
+  for (const selector of selectors) {
+    const element = card.find(selector).first()
+    const text = element.text().replace(/\s+/g, ' ').trim() || element.attr('title')?.replace(/\s+/g, ' ').trim() || ''
+
+    if (isValidTitle(text)) return text
+  }
+
+  const slug = sourceUrl
+    .split('/')
+    .filter(Boolean)
+    .at(-1)
+    ?.replace(/-\d+$/, '')
+    .replace(/-/g, ' ')
+    .trim()
+
+  return slug && isValidTitle(slug) ? slug : 'Propiedad en Jávea'
+}
+
 const iconValue = ($: CheerioAPI, card: cheerio.Cheerio<AnyNode>, iconTitle: string) => {
   const icon = card.find(`.property-15__featuredicon img[title*="${iconTitle}"]`).first()
   if (!icon.length) return null
@@ -150,14 +181,35 @@ const includesWholeTerm = (text: string, term: string) => {
   return splitWords(text).some((word) => word === normalizedTerm)
 }
 
+const forcedLandTerms = [
+  'parcela',
+  'terreno',
+  'solar',
+  'plot',
+  'land',
+  'grundstuck',
+  'grond',
+  'terrain',
+  'edificable',
+  'rustica',
+  'rustico',
+  'finca rustica'
+]
+
 function detectTypeFromTitle(title: string): DetectedPropertyType {
+  const normalizedTitle = normalizeText(title)
+
+  if (forcedLandTerms.some((term) => includesWholeTerm(normalizedTitle, term))) {
+    return 'land'
+  }
+
   return (detectPropertyType(title) ?? 'villa') as DetectedPropertyType
 }
 
 const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
   const card = $(element)
   const sourceUrl = absoluteUrl(card.find('a.property-15__background-link').first().attr('href'))
-  const title = textOf($, card, '.property-15__title')
+  const title = titleOf($, card, sourceUrl)
   const price = parseNumber(textOf($, card, '.property-15__price-text'))
   const location = textOf($, card, '.property-15__location')
   const imageUrl = absoluteUrl(card.find('img.property-15__background').first().attr('src'))

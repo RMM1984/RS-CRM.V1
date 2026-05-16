@@ -118,14 +118,6 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   other: 'agencias'
 }
 
-const externalAgencyName = (property: ExternalProperty) => {
-  if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
-  if (property.source === 'vicens_ash') return property.source_agency_name || 'Vicens Ash'
-  if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
-
-  return property.source_agency_name || property.badge || formatPropertySource(property.source)
-}
-
 const externalBadgeName = (property: ExternalProperty) => {
   if (property.source === 'crown_property') return 'Crown Property'
   if (property.source === 'vicens_ash') return 'Vicens Ash'
@@ -188,6 +180,12 @@ const initials = (title: string) =>
     .map((part) => part[0])
     .join('')
     .toUpperCase()
+
+const propertyCardTitle = (title?: string | null) => {
+  const clean = title?.trim() ?? ''
+
+  return clean && !/^\d+$/.test(clean) ? clean : 'Propiedad en Jávea'
+}
 
 const normalizeUiText = (text: string) =>
   text
@@ -651,11 +649,6 @@ export default function PropertiesPage() {
               ))}
             </div>
           ) : null}
-          {egoProperties.error ? (
-            <Card className="border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-              No se pudieron cargar propiedades de Vicens Ash: {egoProperties.error}
-            </Card>
-          ) : null}
           <ExternalCollection
             onSave={(property) => setShortlistTarget(property)}
             onView={openExternalDetail}
@@ -917,17 +910,17 @@ const PropertyCard = ({
   <Card className="flex h-full flex-col overflow-hidden">
     <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
       {property.images?.[0]?.url ? (
-        <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={property.images[0].url} />
+        <img alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" loading="lazy" src={property.images[0].url} />
       ) : (
         <div className="grid h-16 w-16 place-items-center rounded-full bg-slate-900 text-lg font-bold text-white">
-          {initials(property.title)}
+          {initials(propertyCardTitle(property.title))}
         </div>
       )}
       <Badge className="absolute left-3 top-3 bg-emerald-600 text-white shadow-sm">EXCLUSIVA</Badge>
     </div>
     <div className="flex flex-1 flex-col gap-3 bg-card p-4">
       <div className="min-h-[68px]">
-        <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
+        <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{propertyCardTitle(property.title)}</h3>
         <p className="text-sm text-muted-foreground">{property.city}</p>
       </div>
       <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
@@ -953,12 +946,13 @@ const PropertyCard = ({
 
 const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView: () => void; property: ExternalProperty }) => {
   const imageUrl = property.image_url || property.images?.[0]?.url
+  const title = propertyCardTitle(property.title)
 
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-blue-50">
         {imageUrl ? (
-          <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
+          <img alt={title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
         ) : (
           <Home className="h-14 w-14 text-blue-500" />
         )}
@@ -966,9 +960,8 @@ const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView
       </div>
       <div className="flex flex-1 flex-col gap-3 bg-card p-4">
         <div className="min-h-[68px]">
-          <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
+          <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{title}</h3>
           <p className="text-sm text-muted-foreground">{property.city}</p>
-          <p className="text-xs font-medium text-muted-foreground">{externalAgencyName(property)}</p>
         </div>
         <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
         <FeatureRow property={property} />

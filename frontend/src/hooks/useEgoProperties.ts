@@ -188,6 +188,7 @@ export function useEgoProperties(searchParams: SearchKeywords | null) {
         if (!cancelled) setResults(items)
       })
       .catch((err: unknown) => {
+        console.error('Vicens Ash fetch failed:', err)
         if (!cancelled) setError(err instanceof Error ? err.message : String(err))
       })
       .finally(() => {
