@@ -15,6 +15,7 @@ import {
   passesHardFilters,
   scoreProperty
 } from './search/queryParser'
+import { getPropertyMatches } from './matching.service'
 
 export type PropertyFilters = {
   type?: string
@@ -188,6 +189,16 @@ export const getProperty = async (db: PoolClient, id: string) => {
   if (!property.rows[0]) return null
   const images = await db.query('SELECT id, url, path, created_at FROM property_images WHERE property_id = $1 ORDER BY created_at', [id])
   return { ...property.rows[0], images: images.rows }
+}
+
+export const getMatchesForProperty = async (db: PoolClient, id: string) => {
+  const property = await getProperty(db, id)
+
+  if (!property) {
+    return null
+  }
+
+  return getPropertyMatches(db, property)
 }
 
 export const updateProperty = async (db: PoolClient, id: string, data: Partial<PropertyInput>) => {

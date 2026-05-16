@@ -27,6 +27,7 @@ import { formatPropertyPrice } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
 import type {
   AddInteractionDto,
+  ClientProfile,
   Contact,
   ContactFilters,
   ContactSource,
@@ -71,6 +72,17 @@ const shortlistStatusOptions: Array<{ value: ShortlistStatus; label: string }> =
   { value: 'visit_pending', label: 'Visita pendiente' },
   { value: 'interested', label: 'Interesado' },
   { value: 'discarded', label: 'Descartado' }
+]
+
+const clientProfileOptions: Array<{ value: ClientProfile; label: string }> = [
+  { value: 'investor_yield', label: 'Inversor rentabilidad' },
+  { value: 'investor_flip', label: 'Inversor reforma' },
+  { value: 'first_home', label: 'Primera vivienda' },
+  { value: 'second_home', label: 'Segunda residencia' },
+  { value: 'foreign', label: 'Cliente extranjero' },
+  { value: 'digital_nomad', label: 'Nomada digital' },
+  { value: 'luxury_standard', label: 'Lujo estandar' },
+  { value: 'luxury_premium', label: 'Lujo premium' }
 ]
 
 const contactSchema = z.object({
@@ -173,7 +185,7 @@ export default function ContactsPage() {
   const [modalContact, setModalContact] = useState<Contact | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
-  const [panelTab, setPanelTab] = useState<'actividad' | 'expediente'>('actividad')
+  const [panelTab, setPanelTab] = useState<'datos' | 'actividad' | 'expediente'>('datos')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [operationItem, setOperationItem] = useState<ShortlistItem | null>(null)
@@ -246,7 +258,7 @@ export default function ContactsPage() {
 
     if (contactId) {
       setSelectedContactId(contactId)
-      setPanelTab(tab === 'expediente' ? 'expediente' : 'actividad')
+      setPanelTab(tab === 'expediente' ? 'expediente' : 'datos')
     }
   }, [searchParams])
 
@@ -418,7 +430,7 @@ export default function ContactsPage() {
                       <Button
                         onClick={() => {
                           setSelectedContactId(contact.id)
-                          setPanelTab('actividad')
+                          setPanelTab('datos')
                         }}
                         size="icon"
                         title="Ver"
@@ -624,6 +636,14 @@ export default function ContactsPage() {
 
               <div className="mb-4 flex rounded-md border bg-background p-1">
                 <Button
+                  onClick={() => setPanelTab('datos')}
+                  size="sm"
+                  type="button"
+                  variant={panelTab === 'datos' ? 'default' : 'ghost'}
+                >
+                  Datos
+                </Button>
+                <Button
                   onClick={() => setPanelTab('actividad')}
                   size="sm"
                   type="button"
@@ -641,7 +661,9 @@ export default function ContactsPage() {
                 </Button>
               </div>
 
-              {panelTab === 'actividad' ? (
+              {panelTab === 'datos' ? (
+                <BuyerProfileSection contact={selectedContact} />
+              ) : panelTab === 'actividad' ? (
                 <section className="grid gap-3">
                   <h4 className="font-semibold">Historial de actividad</h4>
                   {selectedContact.interactions.length === 0 ? (
@@ -889,6 +911,190 @@ const ShortlistCard = ({
         </div>
       ) : null}
     </div>
+  )
+}
+
+const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
+  const updateContact = useUpdateContact()
+  const [draft, setDraft] = useState({
+    client_profile: contact.client_profile ?? '',
+    budget_min: contact.budget_min?.toString() ?? '',
+    budget_max: contact.budget_max?.toString() ?? '',
+    rooms_min: contact.rooms_min?.toString() ?? '',
+    bathrooms_min: contact.bathrooms_min?.toString() ?? '',
+    surface_min: contact.surface_min?.toString() ?? '',
+    price_per_m2_max: contact.price_per_m2_max?.toString() ?? '',
+    needs_renovation: Boolean(contact.needs_renovation),
+    needs_pool: Boolean(contact.needs_pool),
+    needs_sea_view: Boolean(contact.needs_sea_view),
+    needs_garden: Boolean(contact.needs_garden),
+    needs_parking: Boolean(contact.needs_parking),
+    preferred_zones: (contact.preferred_zones ?? []).join(', '),
+    languages: (contact.languages ?? []).join(', '),
+    requirements_text: contact.requirements_text ?? ''
+  })
+
+  useEffect(() => {
+    setDraft({
+      client_profile: contact.client_profile ?? '',
+      budget_min: contact.budget_min?.toString() ?? '',
+      budget_max: contact.budget_max?.toString() ?? '',
+      rooms_min: contact.rooms_min?.toString() ?? '',
+      bathrooms_min: contact.bathrooms_min?.toString() ?? '',
+      surface_min: contact.surface_min?.toString() ?? '',
+      price_per_m2_max: contact.price_per_m2_max?.toString() ?? '',
+      needs_renovation: Boolean(contact.needs_renovation),
+      needs_pool: Boolean(contact.needs_pool),
+      needs_sea_view: Boolean(contact.needs_sea_view),
+      needs_garden: Boolean(contact.needs_garden),
+      needs_parking: Boolean(contact.needs_parking),
+      preferred_zones: (contact.preferred_zones ?? []).join(', '),
+      languages: (contact.languages ?? []).join(', '),
+      requirements_text: contact.requirements_text ?? ''
+    })
+  }, [contact])
+
+  const numberOrNull = (value: string) => {
+    const parsed = Number(value)
+    return value.trim() && Number.isFinite(parsed) ? parsed : null
+  }
+
+  const listOrNull = (value: string) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+
+  const needs = [
+    draft.needs_pool && 'piscina',
+    draft.needs_sea_view && 'vistas al mar',
+    draft.needs_garden && 'jardin',
+    draft.needs_parking && 'parking',
+    draft.needs_renovation && 'reforma'
+  ].filter(Boolean)
+
+  return (
+    <section className="grid gap-4">
+      <div className="rounded-md border p-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h4 className="font-semibold">Perfil de comprador</h4>
+            <p className="text-sm text-muted-foreground">
+              Presupuesto, necesidades y zonas para el matching automatico.
+            </p>
+          </div>
+          {draft.client_profile ? (
+            <Badge>{clientProfileOptions.find((option) => option.value === draft.client_profile)?.label}</Badge>
+          ) : null}
+        </div>
+        <div className="grid gap-3">
+          <Field label="Tipo">
+            <select
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+              onChange={(event) => setDraft((current) => ({ ...current, client_profile: event.target.value }))}
+              value={draft.client_profile}
+            >
+              <option value="">Sin perfil</option>
+              {clientProfileOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Presupuesto min.">
+              <Input onChange={(event) => setDraft((current) => ({ ...current, budget_min: event.target.value }))} value={draft.budget_min} />
+            </Field>
+            <Field label="Presupuesto max.">
+              <Input onChange={(event) => setDraft((current) => ({ ...current, budget_max: event.target.value }))} value={draft.budget_max} />
+            </Field>
+            <Field label="Habitaciones min.">
+              <Input onChange={(event) => setDraft((current) => ({ ...current, rooms_min: event.target.value }))} value={draft.rooms_min} />
+            </Field>
+            <Field label="Banos min.">
+              <Input onChange={(event) => setDraft((current) => ({ ...current, bathrooms_min: event.target.value }))} value={draft.bathrooms_min} />
+            </Field>
+            <Field label="Superficie min.">
+              <Input onChange={(event) => setDraft((current) => ({ ...current, surface_min: event.target.value }))} value={draft.surface_min} />
+            </Field>
+            <Field label="Max. euro/m2">
+              <Input onChange={(event) => setDraft((current) => ({ ...current, price_per_m2_max: event.target.value }))} value={draft.price_per_m2_max} />
+            </Field>
+          </div>
+          <div className="grid gap-2">
+            <Label>Necesidades</Label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ['needs_pool', 'Piscina'],
+                ['needs_sea_view', 'Vistas al mar'],
+                ['needs_garden', 'Jardin'],
+                ['needs_parking', 'Parking'],
+                ['needs_renovation', 'Reforma']
+              ].map(([key, label]) => (
+                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm" key={key}>
+                  <input
+                    checked={Boolean(draft[key as keyof typeof draft])}
+                    onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.checked }))}
+                    type="checkbox"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {needs.length ? <p className="text-xs text-muted-foreground">Activas: {needs.join(', ')}</p> : null}
+          </div>
+          <Field label="Zonas preferidas">
+            <Input
+              onChange={(event) => setDraft((current) => ({ ...current, preferred_zones: event.target.value }))}
+              placeholder="Montgo, Arenal, Puerto"
+              value={draft.preferred_zones}
+            />
+          </Field>
+          <Field label="Idiomas">
+            <Input
+              onChange={(event) => setDraft((current) => ({ ...current, languages: event.target.value }))}
+              placeholder="es, en, de"
+              value={draft.languages}
+            />
+          </Field>
+          <Field label="Descripcion">
+            <Textarea
+              onChange={(event) => setDraft((current) => ({ ...current, requirements_text: event.target.value }))}
+              value={draft.requirements_text}
+            />
+          </Field>
+          <Button
+            disabled={updateContact.isPending}
+            onClick={() =>
+              updateContact.mutate({
+                id: contact.id,
+                payload: {
+                  client_profile: draft.client_profile ? (draft.client_profile as ClientProfile) : null,
+                  budget_min: numberOrNull(draft.budget_min),
+                  budget_max: numberOrNull(draft.budget_max),
+                  rooms_min: numberOrNull(draft.rooms_min),
+                  bathrooms_min: numberOrNull(draft.bathrooms_min),
+                  surface_min: numberOrNull(draft.surface_min),
+                  price_per_m2_max: numberOrNull(draft.price_per_m2_max),
+                  needs_renovation: draft.needs_renovation,
+                  needs_pool: draft.needs_pool,
+                  needs_sea_view: draft.needs_sea_view,
+                  needs_garden: draft.needs_garden,
+                  needs_parking: draft.needs_parking,
+                  preferred_zones: listOrNull(draft.preferred_zones),
+                  languages: listOrNull(draft.languages),
+                  requirements_text: draft.requirements_text || null
+                }
+              })
+            }
+            type="button"
+          >
+            Guardar perfil
+          </Button>
+        </div>
+      </div>
+    </section>
   )
 }
 

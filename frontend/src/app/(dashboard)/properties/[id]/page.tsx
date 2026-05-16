@@ -9,10 +9,12 @@ import {
   Home,
   Leaf,
   LineChart,
+  MessageCircle,
   Phone,
   Ruler,
   Save,
   Sparkles,
+  UserRound,
   X
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
@@ -24,7 +26,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { JAVEA_MARKET_STATS } from '@/data/marketStats'
 import { useContacts } from '@/hooks/useContacts'
-import { useProperty, useSaveToShortlist } from '@/hooks/useProperties'
+import { useCreateOperation } from '@/hooks/useOperations'
+import { useProperty, usePropertyMatches, useSaveToShortlist } from '@/hooks/useProperties'
 import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
 import type { ExternalProperty, Property } from '@/types/properties'
@@ -32,6 +35,17 @@ import type { ExternalProperty, Property } from '@/types/properties'
 type DetailProperty = Property | ExternalProperty
 
 const numberFormat = new Intl.NumberFormat('es-ES')
+
+const profileLabels: Record<string, string> = {
+  investor_yield: 'Inversor rentabilidad',
+  investor_flip: 'Inversor reforma',
+  first_home: 'Primera vivienda',
+  second_home: 'Segunda residencia',
+  foreign: 'Cliente extranjero',
+  digital_nomad: 'Nomada digital',
+  luxury_standard: 'Lujo estandar',
+  luxury_premium: 'Lujo premium'
+}
 
 const toNumber = (value: number | string | null | undefined) => {
   if (value === null || value === undefined || value === '') return null
@@ -115,8 +129,10 @@ export default function PropertyDetailPage() {
   }, [params.id])
 
   const propertyQuery = useProperty(hasCheckedSession && !externalProperty ? params.id : null)
+  const matchesQuery = usePropertyMatches(hasCheckedSession && !externalProperty ? params.id : null)
   const contactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', search: '' })
   const saveToShortlist = useSaveToShortlist()
+  const createOperation = useCreateOperation()
 
   const property = externalProperty ?? propertyQuery.data ?? null
   const imageUrl = property ? mainImage(property) : ''
@@ -277,6 +293,82 @@ export default function PropertyDetailPage() {
               {property.description || 'Sin descripción disponible.'}
             </p>
           </Card>
+
+          {!isExternalProperty(property) ? (
+            <Card className="grid gap-4 p-5">
+              <div>
+                <h2 className="flex items-center gap-2 font-semibold">
+                  <UserRound className="h-5 w-5 text-primary" />
+                  Clientes que podrian estar interesados
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Top 5 calculado con presupuesto, zonas y necesidades del perfil comprador.
+                </p>
+              </div>
+              {matchesQuery.isLoading ? <div className="h-28 animate-pulse rounded-md bg-muted" /> : null}
+              {!matchesQuery.isLoading && !matchesQuery.data?.length ? (
+                <p className="rounded-md border p-4 text-sm text-muted-foreground">
+                  Todavia no hay clientes con perfil suficiente para esta propiedad.
+                </p>
+              ) : null}
+              {matchesQuery.data?.map((match, index) => (
+                <div className="rounded-md border p-4" key={match.contact.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold">
+                        {index + 1}. {match.contact.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {profileLabels[match.contact.client_profile] ?? match.contact.client_profile}
+                        {match.contact.budget_max ? ` - hasta ${formatPropertyPrice(match.contact.budget_max, 'sale')}` : ''}
+                      </p>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-800">{match.percentage}%</Badge>
+                  </div>
+                  <div className="mt-3 grid gap-1 text-sm text-slate-700">
+                    {match.reasons.slice(0, 4).map((reason) => (
+                      <span key={reason}>✓ {reason}</span>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {match.contact.phone ? (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={`tel:${match.contact.phone.replace(/\s/g, '')}`}>
+                          <Phone className="mr-2 h-4 w-4" />
+                          Llamar
+                        </a>
+                      </Button>
+                    ) : null}
+                    {match.contact.phone ? (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={`https://wa.me/${match.contact.phone.replace(/[^\d]/g, '')}`} rel="noreferrer" target="_blank">
+                          <MessageCircle className="mr-2 h-4 w-4" />
+                          WhatsApp
+                        </a>
+                      </Button>
+                    ) : null}
+                    <Button
+                      disabled={createOperation.isPending}
+                      onClick={async () => {
+                        await createOperation.mutateAsync({
+                          contact_id: match.contact.id,
+                          property_id: property.id,
+                          type: property.operation === 'rent' ? 'rent' : 'sale',
+                          stage: 'lead',
+                          value: price,
+                          notes: `Operacion creada desde matching de propiedad: ${property.title}`
+                        })
+                        router.push('/operations')
+                      }}
+                      size="sm"
+                    >
+                      + Op.
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          ) : null}
         </div>
 
         <aside className="grid h-fit gap-4">

@@ -27,20 +27,39 @@ export const setSchema = async (req: Request, res: Response, next: NextFunction)
     const client = await pool.connect()
     const schema = quoteIdentifier(schemaName)
     let released = false
-    const releaseClient = () => {
+    const releaseClient = async () => {
       if (released) return
       released = true
-      client.query('RESET search_path').finally(() => client.release())
+
+      try {
+        if (res.statusCode >= 400) {
+          await client.query('ROLLBACK')
+        } else {
+          await client.query('COMMIT')
+        }
+      } catch (releaseError) {
+        console.error('[setSchema] Release transaction error:', releaseError)
+        try {
+          await client.query('ROLLBACK')
+        } catch {
+          // Ignore rollback failure during cleanup.
+        }
+      } finally {
+        client.release()
+      }
     }
 
-    await client.query(`SET search_path TO ${schema}, public`)
+    await client.query('BEGIN')
+    await client.query(`SET LOCAL search_path TO ${schema}, public`)
     req.db = client
     req.schemaName = schemaName
 
-    res.on('finish', releaseClient)
+    res.on('finish', () => {
+      void releaseClient()
+    })
     res.on('close', () => {
       if (!res.writableEnded) {
-        releaseClient()
+        void releaseClient()
       }
     })
 

@@ -19,6 +19,21 @@ export type ContactInput = {
   status?: string
   notes?: string | null
   assigned_to?: string | null
+  client_profile?: string | null
+  budget_min?: number | null
+  budget_max?: number | null
+  rooms_min?: number | null
+  bathrooms_min?: number | null
+  surface_min?: number | null
+  price_per_m2_max?: number | null
+  needs_renovation?: boolean | null
+  needs_pool?: boolean | null
+  needs_sea_view?: boolean | null
+  needs_garden?: boolean | null
+  needs_parking?: boolean | null
+  preferred_zones?: string[] | null
+  languages?: string[] | null
+  requirements_text?: string | null
 }
 
 export type ContactUpdateInput = Partial<ContactInput>
@@ -38,6 +53,21 @@ const contactSelect = `
   status,
   notes,
   assigned_to,
+  client_profile,
+  budget_min,
+  budget_max,
+  rooms_min,
+  bathrooms_min,
+  surface_min,
+  price_per_m2_max,
+  needs_renovation,
+  needs_pool,
+  needs_sea_view,
+  needs_garden,
+  needs_parking,
+  preferred_zones,
+  languages,
+  requirements_text,
   active,
   created_at,
   updated_at
@@ -130,8 +160,18 @@ export const createContact = async (
 ) => {
   const assignedTo = data.assigned_to ?? user.id
   const { rows } = await db.query(
-    `INSERT INTO contacts (full_name, phone, email, type, source, status, notes, assigned_to, active)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+    `INSERT INTO contacts (
+      full_name, phone, email, type, source, status, notes, assigned_to,
+      client_profile, budget_min, budget_max, rooms_min, bathrooms_min, surface_min,
+      price_per_m2_max, needs_renovation, needs_pool, needs_sea_view, needs_garden,
+      needs_parking, preferred_zones, languages, requirements_text, active
+    )
+    VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8,
+      $9, $10, $11, $12, $13, $14,
+      $15, $16, $17, $18, $19,
+      $20, $21, $22, $23, true
+    )
     RETURNING ${contactSelect}`,
     [
       data.name,
@@ -141,7 +181,22 @@ export const createContact = async (
       data.source ?? null,
       data.status ?? 'activo',
       data.notes ?? null,
-      assignedTo
+      assignedTo,
+      data.client_profile ?? null,
+      data.budget_min ?? null,
+      data.budget_max ?? null,
+      data.rooms_min ?? null,
+      data.bathrooms_min ?? null,
+      data.surface_min ?? null,
+      data.price_per_m2_max ?? null,
+      data.needs_renovation ?? false,
+      data.needs_pool ?? false,
+      data.needs_sea_view ?? false,
+      data.needs_garden ?? false,
+      data.needs_parking ?? false,
+      data.preferred_zones ?? [],
+      data.languages ?? [],
+      data.requirements_text ?? null
     ]
   )
 
@@ -171,6 +226,21 @@ export const updateContact = async (
   add('source', data.source ?? undefined)
   add('status', data.status)
   add('notes', data.notes ?? undefined)
+  add('client_profile', data.client_profile ?? undefined)
+  add('budget_min', data.budget_min ?? undefined)
+  add('budget_max', data.budget_max ?? undefined)
+  add('rooms_min', data.rooms_min ?? undefined)
+  add('bathrooms_min', data.bathrooms_min ?? undefined)
+  add('surface_min', data.surface_min ?? undefined)
+  add('price_per_m2_max', data.price_per_m2_max ?? undefined)
+  add('needs_renovation', data.needs_renovation ?? undefined)
+  add('needs_pool', data.needs_pool ?? undefined)
+  add('needs_sea_view', data.needs_sea_view ?? undefined)
+  add('needs_garden', data.needs_garden ?? undefined)
+  add('needs_parking', data.needs_parking ?? undefined)
+  add('preferred_zones', data.preferred_zones ?? undefined)
+  add('languages', data.languages ?? undefined)
+  add('requirements_text', data.requirements_text ?? undefined)
 
   if (user.role === 'admin') {
     add('assigned_to', data.assigned_to ?? undefined)

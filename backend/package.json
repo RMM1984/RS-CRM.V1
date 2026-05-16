@@ -12,7 +12,10 @@
     "seed:admin": "tsx src/db/seedAdmin.ts",
     "seed:crown": "ts-node src/scripts/seed-crown-properties.ts",
     "sync:ego": "ts-node src/scripts/sync-ego.ts",
-    "seed:contacts": "ts-node src/scripts/seed-contacts.ts"
+    "seed:contacts": "ts-node src/scripts/seed-contacts.ts",
+    "seed:users": "ts-node src/scripts/seed-users.ts",
+    "seed:profiles": "ts-node src/scripts/seed-profiles.ts",
+    "seed:operations": "ts-node src/scripts/seed-operations.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

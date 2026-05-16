@@ -6,6 +6,7 @@ import type {
   PropertiesPageData,
   Property,
   PropertyFilters,
+  PropertyContactMatch,
   PropertySearchResult,
   SaveToShortlistDto,
   ShortlistItem,
@@ -91,6 +92,17 @@ export const usePropertySearch = (query: string) =>
       })
 
       return unwrap(response.data)
+    }
+  })
+
+export const usePropertyMatches = (id?: string | null) =>
+  useQuery({
+    enabled: Boolean(id),
+    queryKey: ['property', id, 'matches'],
+    queryFn: async () => {
+      const response = await api.get<SuccessResponse<{ matches: PropertyContactMatch[] }>>(`/api/properties/${id}/matches`)
+
+      return unwrap(response.data).matches
     }
   })
 

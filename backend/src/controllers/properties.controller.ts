@@ -124,6 +124,17 @@ export const search: RequestHandler = async (req, res, next) => {
   }
 }
 
+export const matches: RequestHandler = async (req, res, next) => {
+  try {
+    const id = idSchema.parse(req.params.id)
+    const matchesResult = await propertiesService.getMatchesForProperty(req.db!, id)
+
+    return matchesResult ? sendSuccess(res, { matches: matchesResult }) : sendError(res, 'Propiedad no encontrada', 404)
+  } catch (err) {
+    return next(err)
+  }
+}
+
 export const cacheStatus: RequestHandler = (_req, res) => {
   res.json(getCrownCacheStatus())
 }

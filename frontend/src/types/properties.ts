@@ -151,3 +151,20 @@ export type SaveToShortlistDto = {
   external_data?: ExternalProperty | null
   notes?: string | null
 }
+
+export type PropertyContactMatch = {
+  contact: {
+    id: string
+    name: string
+    email: string | null
+    phone: string | null
+    client_profile: string
+    budget_min: number | string | null
+    budget_max: number | string | null
+    languages: string[] | null
+    requirements_text: string | null
+  }
+  score: number
+  percentage: number
+  reasons: string[]
+}

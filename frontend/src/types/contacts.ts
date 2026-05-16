@@ -2,6 +2,15 @@ export type ContactType = 'comprador' | 'vendedor' | 'inquilino' | 'propietario'
 export type ContactStatus = 'activo' | 'frio' | 'cerrado'
 export type ContactSource = 'web' | 'referral' | 'portal' | 'manual'
 export type InteractionType = 'call' | 'email' | 'note' | 'whatsapp' | 'visit'
+export type ClientProfile =
+  | 'investor_yield'
+  | 'investor_flip'
+  | 'first_home'
+  | 'second_home'
+  | 'foreign'
+  | 'digital_nomad'
+  | 'luxury_standard'
+  | 'luxury_premium'
 
 export type Contact = {
   id: string
@@ -13,6 +22,21 @@ export type Contact = {
   status: ContactStatus
   notes: string | null
   assigned_to: string | null
+  client_profile: ClientProfile | null
+  budget_min: number | string | null
+  budget_max: number | string | null
+  rooms_min: number | null
+  bathrooms_min: number | null
+  surface_min: number | null
+  price_per_m2_max: number | string | null
+  needs_renovation: boolean
+  needs_pool: boolean
+  needs_sea_view: boolean
+  needs_garden: boolean
+  needs_parking: boolean
+  preferred_zones: string[] | null
+  languages: string[] | null
+  requirements_text: string | null
   active: boolean
   created_at: string
   updated_at: string
@@ -37,6 +61,21 @@ export type CreateContactDto = {
   status?: ContactStatus
   notes?: string | null
   assigned_to?: string | null
+  client_profile?: ClientProfile | null
+  budget_min?: number | null
+  budget_max?: number | null
+  rooms_min?: number | null
+  bathrooms_min?: number | null
+  surface_min?: number | null
+  price_per_m2_max?: number | null
+  needs_renovation?: boolean | null
+  needs_pool?: boolean | null
+  needs_sea_view?: boolean | null
+  needs_garden?: boolean | null
+  needs_parking?: boolean | null
+  preferred_zones?: string[] | null
+  languages?: string[] | null
+  requirements_text?: string | null
 }
 
 export type UpdateContactDto = Partial<CreateContactDto>

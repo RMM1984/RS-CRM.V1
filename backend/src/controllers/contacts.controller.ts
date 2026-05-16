@@ -6,6 +6,16 @@ const contactTypeSchema = z.enum(['comprador', 'vendedor', 'inquilino', 'propiet
 const contactStatusSchema = z.enum(['activo', 'frio', 'cerrado'])
 const contactSourceSchema = z.enum(['web', 'referral', 'portal', 'manual'])
 const interactionTypeSchema = z.enum(['call', 'email', 'note', 'whatsapp', 'visit'])
+const clientProfileSchema = z.enum([
+  'investor_yield',
+  'investor_flip',
+  'first_home',
+  'second_home',
+  'foreign',
+  'digital_nomad',
+  'luxury_standard',
+  'luxury_premium'
+])
 
 const listQuerySchema = z.object({
   type: contactTypeSchema.optional(),
@@ -24,7 +34,22 @@ const createContactSchema = z.object({
   source: contactSourceSchema.optional().nullable(),
   status: contactStatusSchema.default('activo'),
   notes: z.string().trim().optional().nullable(),
-  assigned_to: z.string().uuid().optional().nullable()
+  assigned_to: z.string().uuid().optional().nullable(),
+  client_profile: clientProfileSchema.optional().nullable(),
+  budget_min: z.coerce.number().nonnegative().optional().nullable(),
+  budget_max: z.coerce.number().nonnegative().optional().nullable(),
+  rooms_min: z.coerce.number().int().nonnegative().optional().nullable(),
+  bathrooms_min: z.coerce.number().int().nonnegative().optional().nullable(),
+  surface_min: z.coerce.number().int().nonnegative().optional().nullable(),
+  price_per_m2_max: z.coerce.number().nonnegative().optional().nullable(),
+  needs_renovation: z.boolean().optional().nullable(),
+  needs_pool: z.boolean().optional().nullable(),
+  needs_sea_view: z.boolean().optional().nullable(),
+  needs_garden: z.boolean().optional().nullable(),
+  needs_parking: z.boolean().optional().nullable(),
+  preferred_zones: z.array(z.string().trim().min(1)).optional().nullable(),
+  languages: z.array(z.string().trim().min(1)).optional().nullable(),
+  requirements_text: z.string().trim().optional().nullable()
 })
 
 const updateContactSchema = createContactSchema.partial()
