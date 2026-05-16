@@ -115,14 +115,29 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
 }
 
 const filterTypeLabels: Record<string, string> = {
-  piso: 'piso',
-  apartamento: 'apartamento',
-  casa: 'casa de pueblo',
-  chalet: 'chalet',
+  apartment: 'piso apartamento',
+  apartment_loft: 'loft estudio',
+  apartment_penthouse: 'atico penthouse',
+  village_house: 'casa de pueblo',
+  townhouse: 'adosado pareado',
+  bungalow: 'bungalow',
+  villa: 'chalet villa finca',
+  land: 'terreno parcela',
+  commercial: 'local oficina',
+  garage: 'garaje parking'
+}
+
+const typeFilterToCanonical: Record<string, string> = {
+  apartment: 'apartment',
+  apartment_loft: 'apartment',
+  apartment_penthouse: 'apartment',
+  village_house: 'village_house',
+  townhouse: 'townhouse',
+  bungalow: 'townhouse',
   villa: 'villa',
-  terreno: 'terreno',
-  local: 'local comercial',
-  garaje: 'garaje'
+  land: 'land',
+  commercial: 'commercial',
+  garage: 'garage'
 }
 
 const filterOperationLabels: Record<string, string> = {
@@ -173,8 +188,10 @@ const uiHasWholeTerm = (text: string, term: string) => {
 }
 
 const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFilters) => {
-  if (filters.source && filters.source !== 'all' && filters.source !== 'other' && property.source !== filters.source) {
-    return false
+  if (filters.source && filters.source !== 'all') {
+    if (filters.source === 'internal' && property.source !== 'crown_property') return false
+    if (filters.source === 'other' && property.source === 'crown_property') return false
+    if (filters.source !== 'internal' && filters.source !== 'other' && property.source !== filters.source) return false
   }
 
   if (filters.operation && filters.operation !== 'all' && property.operation !== filters.operation) {
@@ -185,32 +202,21 @@ const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFil
     const type = normalizeUiText(String(property.detected_type ?? property.type))
     const text = normalizeUiText(`${property.title} ${property.zone ?? ''} ${property.search_text ?? ''}`)
     const selectedType = filters.type
-    const expectedType =
-      selectedType === 'villa' || selectedType === 'chalet'
-        ? 'villa'
-        : selectedType === 'casa'
-        ? 'house'
-        : selectedType === 'piso' || selectedType === 'apartamento'
-          ? 'apartment'
-          : selectedType === 'terreno'
-            ? 'land'
-            : selectedType === 'local'
-              ? 'commercial'
-              : selectedType === 'garaje'
-                ? 'garage'
-          : selectedType
+    const expectedType = typeFilterToCanonical[selectedType] ?? selectedType
     const family =
-      selectedType === 'villa' || selectedType === 'chalet'
+      expectedType === 'villa'
         ? ['villa', 'chalet', 'finca', 'cortijo', 'masia']
-        : selectedType === 'casa'
-          ? ['house', 'casa', 'adosado', 'pareado', 'pueblo', 'townhouse', 'cottage']
-        : selectedType === 'piso' || selectedType === 'apartamento'
+        : expectedType === 'village_house'
+          ? ['village_house', 'casa', 'pueblo', 'cottage', 'country', 'cortijo']
+        : expectedType === 'townhouse'
+          ? ['townhouse', 'adosado', 'pareado', 'bungalow', 'terraced']
+        : expectedType === 'apartment'
           ? ['apartment', 'piso', 'apartamento', 'apto', 'atico']
-          : selectedType === 'terreno'
+          : expectedType === 'land'
             ? ['land', 'parcela', 'terreno', 'solar', 'plot']
-            : selectedType === 'local'
+            : expectedType === 'commercial'
               ? ['commercial', 'local', 'oficina', 'nave', 'shop', 'office']
-              : selectedType === 'garaje'
+              : expectedType === 'garage'
                 ? ['garage', 'garaje', 'parking', 'trastero']
                 : [selectedType]
 
@@ -307,11 +313,9 @@ export default function PropertiesPage() {
       search_text: `${item.title} ${item.address} ${item.external_badge ?? ''}`
     })) satisfies ExternalProperty[]
   const externalProperties: ExternalProperty[] =
-    filters.source === 'internal'
-      ? []
-      : (searchResult ? searchResult.external : localExternalProperties).filter((property) =>
-          externalMatchesFilters(property, filters)
-        )
+    (searchResult ? searchResult.external : localExternalProperties).filter((property) =>
+      externalMatchesFilters(property, filters)
+    )
   const crownProperties = externalProperties.filter((property) => property.source === 'crown_property')
   const agencyProperties = externalProperties.filter((property) => property.source !== 'crown_property')
   const exclusiveCount = internalProperties.length + crownProperties.length
@@ -326,17 +330,13 @@ export default function PropertiesPage() {
   const buildSearchQuery = useCallback(() => {
     const terms = [query.trim()]
 
-    if (filters.type && filters.type !== 'all') {
-      terms.push(filterTypeLabels[filters.type] ?? filters.type)
-    }
-
     if (filters.operation && filters.operation !== 'all') {
       terms.push(filterOperationLabels[filters.operation] ?? filters.operation)
     }
 
     const searchQuery = terms.filter(Boolean).join(' ').trim()
 
-    if (!searchQuery && (filters.source === 'crown_property' || filters.source === 'other')) {
+    if (!searchQuery && (filters.type !== 'all' || filters.source !== 'all' || filters.operation !== 'all')) {
       return 'javea'
     }
 
@@ -373,7 +373,10 @@ export default function PropertiesPage() {
       return
     }
 
-    const result = await searchProperties(searchQuery)
+    const result = await searchProperties({
+      query: searchQuery,
+      type: filters.type && filters.type !== 'all' ? typeFilterToCanonical[filters.type] ?? filters.type : null
+    })
     const chips = [
       result.keywords.type,
       result.keywords.rooms_min ? `${result.keywords.rooms_min} hab` : null,
@@ -395,13 +398,7 @@ export default function PropertiesPage() {
     const searchableFilterActive =
       (filters.type && filters.type !== 'all') ||
       (filters.operation && filters.operation !== 'all') ||
-      filters.source === 'crown_property' ||
-      filters.source === 'other'
-
-    if (filters.source === 'internal') {
-      setSearchResult(null)
-      return
-    }
+      filters.source !== 'all'
 
     if (!query.trim() && !searchableFilterActive) {
       setSearchResult(null)
@@ -560,14 +557,16 @@ export default function PropertiesPage() {
             onChange={(value) => setFilters((current) => ({ ...current, type: value, page: 1 }))}
             options={[
               ['all', 'Todos'],
-              ['piso', 'Piso'],
-              ['apartamento', 'Apartamento'],
-              ['casa', 'Casa'],
-              ['chalet', 'Chalet'],
-              ['villa', 'Villa'],
-              ['terreno', 'Terreno'],
-              ['local', 'Local'],
-              ['garaje', 'Garaje']
+              ['apartment', 'Piso/Apartamento'],
+              ['apartment_loft', 'Loft/Estudio'],
+              ['apartment_penthouse', 'Atico/Penthouse'],
+              ['village_house', 'Casa de pueblo'],
+              ['townhouse', 'Adosado/Pareado'],
+              ['bungalow', 'Bungalow'],
+              ['villa', 'Chalet/Villa/Finca'],
+              ['land', 'Terreno/Parcela'],
+              ['commercial', 'Local/Oficina'],
+              ['garage', 'Garaje/Parking']
             ]}
             value={filters.type ?? 'all'}
           />
@@ -576,10 +575,9 @@ export default function PropertiesPage() {
             onChange={(value) => setFilters((current) => ({ ...current, status: value as PropertyStatus | 'all', page: 1 }))}
             options={[
               ['all', 'Todos'],
-              ['active', 'Activa'],
+              ['available', 'Disponible'],
               ['reserved', 'Reservada'],
-              ['sold', 'Vendida'],
-              ['rented', 'Alquilada']
+              ['sold', 'Vendida']
             ]}
             value={filters.status ?? 'all'}
           />
@@ -589,9 +587,6 @@ export default function PropertiesPage() {
             options={[
               ['all', 'Todas'],
               ['internal', 'Exclusivas'],
-              ['crown_property', 'Crown Property'],
-              ['kyero', 'Kyero'],
-              ['sooprema', 'Sooprema'],
               ['other', 'Agencias']
             ]}
             value={filters.source ?? 'all'}

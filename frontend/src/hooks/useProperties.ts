@@ -31,6 +31,19 @@ const unwrap = <T>(payload: SuccessResponse<T>): T => {
   throw new Error(payload.error.message)
 }
 
+const typeFilterToCanonical: Record<string, string> = {
+  apartment: 'apartment',
+  apartment_loft: 'apartment',
+  apartment_penthouse: 'apartment',
+  village_house: 'village_house',
+  townhouse: 'townhouse',
+  bungalow: 'townhouse',
+  villa: 'villa',
+  land: 'land',
+  commercial: 'commercial',
+  garage: 'garage'
+}
+
 const cleanFilters = (filters: PropertyFilters) => {
   const search = filters.search?.trim()
 
@@ -39,7 +52,7 @@ const cleanFilters = (filters: PropertyFilters) => {
     operation: filters.operation === 'all' ? undefined : filters.operation,
     status: filters.status === 'all' ? undefined : filters.status,
     source: filters.source === 'all' ? undefined : filters.source,
-    type: filters.type && filters.type !== 'all' ? filters.type : undefined,
+    type: filters.type && filters.type !== 'all' ? typeFilterToCanonical[filters.type] ?? filters.type : undefined,
     search: search ? search : undefined
   }
 }
@@ -69,9 +82,12 @@ export const useProperty = (id?: string | null) =>
 
 export const usePropertySearch = (query: string) =>
   useMutation({
-    mutationFn: async (overrideQuery?: string) => {
+    mutationFn: async (payload?: string | { query?: string; type?: string | null }) => {
+      const body = typeof payload === 'string'
+        ? { query: payload }
+        : { query: payload?.query ?? query, type: payload?.type }
       const response = await api.post<SuccessResponse<PropertySearchResult>>('/api/properties/search', {
-        query: overrideQuery ?? query
+        ...body
       })
 
       return unwrap(response.data)

@@ -4,6 +4,13 @@ import * as cheerio from 'cheerio'
 import type { CheerioAPI } from 'cheerio'
 import type { AnyNode } from 'domhandler'
 import type { ExternalProperty } from '../propertySync.service'
+import {
+  detectPropertyType,
+  parseQuery,
+  passesHardFilters,
+  scoreProperty,
+  type ParsedQuery
+} from '../search/queryParser'
 
 const CROWN_URL = 'https://www.crown-property.com/venta/javea/'
 const MAX_LISTING_PAGES = 30
@@ -17,10 +24,10 @@ export const cache = {
   TTL: 30 * 60 * 1000
 }
 
-type DetectedPropertyType = 'apartment' | 'house' | 'villa' | 'land' | 'commercial' | 'garage'
+type DetectedPropertyType = 'apartment' | 'house' | 'village_house' | 'townhouse' | 'villa' | 'land' | 'commercial' | 'garage'
 const typeSearchOrder: DetectedPropertyType[] = ['land', 'commercial', 'garage', 'villa', 'house', 'apartment']
 
-const typeDictionary: Record<DetectedPropertyType, string[]> = {
+const typeDictionary: Partial<Record<DetectedPropertyType, string[]>> = {
   apartment: [
     'piso', 'apartamento', 'apto', 'estudio', 'bajo', 'loft',
     'atico', 'duplex',
@@ -79,14 +86,7 @@ const operationDictionary: Record<'sale' | 'rent', string[]> = {
 }
 const shortSearchTerms = new Set(['mar', 'sea', 'mer', 'zee'])
 
-export type CrownSearchKeywords = {
-  price_max?: number
-  surface_min?: number
-  rooms_min?: number
-  type?: DetectedPropertyType
-  operation?: 'sale' | 'rent'
-  terms: string[]
-}
+export type CrownSearchKeywords = ParsedQuery
 
 export function normalizeText(text: string): string {
   return text
@@ -151,16 +151,7 @@ const includesWholeTerm = (text: string, term: string) => {
 }
 
 function detectTypeFromTitle(title: string): DetectedPropertyType {
-  const text = normalizeText(title)
-
-  if (typeDictionary.land.some((term) => includesWholeTerm(text, term))) return 'land'
-  if (typeDictionary.commercial.some((term) => includesWholeTerm(text, term))) return 'commercial'
-  if (typeDictionary.garage.some((term) => includesWholeTerm(text, term))) return 'garage'
-  if (typeDictionary.villa.some((term) => includesWholeTerm(text, term))) return 'villa'
-  if (typeDictionary.house.some((term) => includesWholeTerm(text, term))) return 'house'
-  if (typeDictionary.apartment.some((term) => includesWholeTerm(text, term))) return 'apartment'
-
-  return 'house'
+  return (detectPropertyType(title) ?? 'villa') as DetectedPropertyType
 }
 
 const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
@@ -274,95 +265,20 @@ export async function getCrownProperties(): Promise<ExternalProperty[]> {
   return cache.data
 }
 
-const parseMoney = (value: string) => {
-  const raw = value.toLowerCase().replace(/\s/g, '')
-  const amount = raw.includes('k')
-    ? Number(raw.replace(',', '.').replace(/[^\d.]/g, ''))
-    : Number(raw.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, ''))
-  if (!Number.isFinite(amount)) return undefined
-
-  return raw.includes('k') ? amount * 1000 : amount
+export function parseCrownSearchQuery(query: string, overrides?: { type?: string | null }): CrownSearchKeywords {
+  return parseQuery(query, overrides)
 }
 
-export function parseCrownSearchQuery(query: string): CrownSearchKeywords {
-  const rawQuery = query.toLowerCase()
-  const text = normalizeText(query)
-  const keywords: CrownSearchKeywords = { terms: [] }
-  const consumed = new Set<string>()
-
-  for (const type of typeSearchOrder) {
-    const words = typeDictionary[type]
-    if (words.some((word) => includesWholeTerm(text, word))) {
-      keywords.type = type
-      words.forEach((word) => consumed.add(word))
-      break
-    }
-  }
-
-  for (const [operation, words] of Object.entries(operationDictionary) as Array<[CrownSearchKeywords['operation'], string[]]>) {
-    if (words.some((word) => text.includes(word))) {
-      keywords.operation = operation
-      words.forEach((word) => consumed.add(word))
-      break
-    }
-  }
-
-  const roomMatch = text.match(/(\d+)\s*(hab|bed|zimmer|slaap|chambre)/)
-  if (roomMatch) {
-    keywords.rooms_min = Number(roomMatch[1])
-    consumed.add(roomMatch[1])
-    consumed.add(roomMatch[2])
-  }
-
-  for (const match of rawQuery.matchAll(/(\d+(?:[.,]\d+)?)\s*k\b/g)) {
-    const value = parseMoney(match[0])
-    if (value) keywords.price_max = value
-    consumed.add(normalizeText(match[1]))
-  }
-
-  for (const match of text.matchAll(/(\d+(?:[.,]\d+)?)\s*m\b/g)) {
-    const value = Number(match[1].replace(',', '.'))
-    if (value >= 10 && value <= 999) keywords.surface_min = value
-    consumed.add(match[1])
-  }
-
-  for (const match of rawQuery.matchAll(/\b(?:\d{1,3}(?:[.\s]\d{3})+|\d{4,})\b/g)) {
-    const value = parseMoney(match[0])
-    if (value && value > 1000) keywords.price_max = value
-  }
-
-  keywords.terms = text
-    .split(' ')
-    .filter((term) => (term.length > 3 || shortSearchTerms.has(term)) && !consumed.has(term) && !/^\d/.test(term))
-
-  return keywords
-}
-
-export function searchCrownProperties(query: string): ExternalProperty[] {
-  const keywords = parseCrownSearchQuery(query)
-
-  return cache.data
-    .map((property) => {
-      if (keywords.operation === 'rent') return null
-      if (keywords.price_max !== undefined && property.price > keywords.price_max) return null
-      if (
-        keywords.surface_min !== undefined &&
-        property.surface_m2 !== null &&
-        property.surface_m2 < keywords.surface_min
-      ) {
-        return null
-      }
-      if (keywords.rooms_min !== undefined && property.rooms !== null && property.rooms < keywords.rooms_min) return null
-      if (keywords.type && (property.detected_type ?? property.type) !== keywords.type) return null
-
-      const score = keywords.terms.reduce(
-        (total, term) => total + (property.search_text.includes(term) ? 1 : 0),
-        0
-      )
-
-      return { property, score }
+export function searchCrownProperties(query: string, overrides?: { type?: string | null }): ExternalProperty[] {
+  const keywords = parseCrownSearchQuery(query, overrides)
+  const scored = cache.data
+    .filter((property) => keywords.type || keywords.price_max || keywords.rooms_min || keywords.bathrooms_min || keywords.surface_min || keywords.features.length || keywords.raw_terms.length ? passesHardFilters(property, keywords) : true)
+    .map((property) => ({ property, score: scoreProperty(property, keywords) }))
+    .sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score
+      if (a.score === 0 && b.score === 0) return a.property.price - b.property.price
+      return 0
     })
-    .filter((result): result is { property: ExternalProperty; score: number } => Boolean(result))
-    .sort((a, b) => b.score - a.score)
-    .map((result) => result.property)
+
+  return keywords.operation === 'rent' ? [] : scored.map((result) => result.property)
 }

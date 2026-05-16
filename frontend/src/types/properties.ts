@@ -103,14 +103,17 @@ export type CreatePropertyDto = {
 export type UpdatePropertyDto = Partial<CreatePropertyDto>
 
 export type SearchKeywords = {
-  type?: string
+  type?: string | null
   operation?: PropertyOperation
   city?: string
-  price_max?: number
-  surface_min?: number
-  rooms_min?: number
+  price_max?: number | null
+  surface_min?: number | null
+  rooms_min?: number | null
+  bathrooms_min?: number | null
   terms?: string[]
   features: string[]
+  raw_terms?: string[]
+  detected_language?: string
 }
 
 export type PropertySearchResult = {

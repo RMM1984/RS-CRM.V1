@@ -9,6 +9,12 @@ import {
   searchCrownProperties
 } from './scrapers/crownProperty.scraper'
 import type { ExternalProperty, SearchParams } from './propertySync.service'
+import {
+  hasAnyDetectedParameter,
+  parseQuery,
+  passesHardFilters,
+  scoreProperty
+} from './search/queryParser'
 
 export type PropertyFilters = {
   type?: string
@@ -553,36 +559,21 @@ const detectPriceMax = (text: string) => {
     .find((value) => value > 1000)
 }
 
-export const parseSearchQuery = (query: string): SearchParams => {
-  const text = normalizeText(query)
-  const typeMatch = findTypeMatch(text)
-  const operationMatch = findDictionaryMatch(text, operationKeywords)
-  const featureMatches = findAllDictionaryMatches(text, featureKeywords)
-  const rawTerms = knownAreaTerms.filter((term) => includesTerm(text, term))
-  const languageCandidates = [
-    typeMatch?.language,
-    operationMatch?.language,
-    ...featureMatches.map((match) => match.language)
-  ].filter(Boolean) as string[]
-  const languageDetected = languageCandidates[0] ?? 'unknown'
+export const parseSearchQuery = (query: string, overrides?: { type?: string | null }): SearchParams => {
+  const parsed = parseQuery(query, overrides)
 
   return {
-    type: typeMatch?.value,
-    operation: operationMatch?.value,
-    price_max: detectPriceMax(text),
-    rooms_min: detectRooms(text),
-    features: [...new Set(featureMatches.flatMap((match) => [match.value, match.term]))],
-    raw_terms: [...new Set(rawTerms)],
-    language_detected: languageDetected
+    ...parsed,
+    language_detected: parsed.detected_language
   }
 }
 
-export const searchProperties = async (db: PoolClient, query: string) => {
-  const keywords = parseSearchQuery(query)
+export const searchProperties = async (db: PoolClient, query: string, overrides?: { type?: string | null }) => {
+  const keywords = parseSearchQuery(query, overrides)
   const clauses = ["active = true", "status <> 'archived'"]
   const values: unknown[] = []
 
-  if (keywords.type && !keywords.raw_terms?.length) {
+  if (keywords.type) {
     values.push(keywords.type)
     clauses.push(`property_type = $${values.length}`)
   }
@@ -592,42 +583,29 @@ export const searchProperties = async (db: PoolClient, query: string) => {
     clauses.push(`(operation = $${values.length} OR operation = 'both')`)
   }
 
-  if (keywords.price_max !== undefined) {
+  if (keywords.price_max != null) {
     values.push(keywords.price_max)
     clauses.push(`price <= $${values.length}`)
   }
 
-  if (keywords.rooms_min !== undefined) {
+  if (keywords.rooms_min != null) {
     values.push(keywords.rooms_min)
     clauses.push(`bedrooms >= $${values.length}`)
   }
 
-  if (keywords.features.length) {
-    const terms = [
-      ...new Set(
-        keywords.features.flatMap((term) =>
-          featureKeywords[term] ? dictionaryTermsFor(featureKeywords, term) : [normalizeText(term)]
-        )
-      )
-    ].filter((term) => term.length > 2 && !featureKeywords[term])
-
-    if (terms.length) {
-      const featureClauses = terms.map((term) => {
-        values.push(`%${term}%`)
-        return `(${normalizedSql('title')} ILIKE $${values.length} OR ${normalizedSql('description')} ILIKE $${values.length})`
-      })
-      clauses.push(`(${featureClauses.join(' OR ')})`)
-    }
+  if (keywords.bathrooms_min != null) {
+    values.push(keywords.bathrooms_min)
+    clauses.push(`bathrooms >= $${values.length}`)
   }
 
-  keywords.raw_terms?.forEach((term) => {
-    values.push(`%${term}%`)
-    clauses.push(`(${normalizedSql('city')} ILIKE $${values.length} OR ${normalizedSql('address')} ILIKE $${values.length})`)
-  })
+  if (keywords.surface_min != null) {
+    values.push(keywords.surface_min)
+    clauses.push(`sqm >= $${values.length}`)
+  }
 
   await getCrownProperties()
-  const crownKeywords = parseCrownSearchQuery(query)
-  const external = searchCrownProperties(query)
+  const crownKeywords = parseCrownSearchQuery(query, overrides)
+  const external = searchCrownProperties(query, overrides)
   let internal: unknown[] = []
 
   try {
@@ -640,7 +618,16 @@ export const searchProperties = async (db: PoolClient, query: string) => {
        LIMIT 20`,
       values
     )
-    internal = rows.filter((property) => property.source === 'internal')
+    const scored = rows
+      .filter((property) => property.source === 'internal')
+      .filter((property) => (hasAnyDetectedParameter(crownKeywords) ? passesHardFilters(property, crownKeywords) : true))
+      .map((property) => ({ property, score: scoreProperty(property, crownKeywords) }))
+      .sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score
+        if (a.score === 0 && b.score === 0) return Number(a.property.price) - Number(b.property.price)
+        return 0
+      })
+    internal = scored.map((result) => result.property)
   } catch (error) {
     console.error('[PropertiesSearch] Internal DB search failed, returning Crown results only:', error)
   }

@@ -1,12 +1,14 @@
 export type SearchParams = {
-  type?: string
-  operation?: string
+  type?: string | null
+  operation?: string | null
   city?: string
-  price_max?: number
-  surface_min?: number
-  rooms_min?: number
+  price_max?: number | null
+  surface_min?: number | null
+  rooms_min?: number | null
+  bathrooms_min?: number | null
   terms?: string[]
   raw_terms?: string[]
+  detected_language?: string
   language_detected?: string
   features: string[]
 }

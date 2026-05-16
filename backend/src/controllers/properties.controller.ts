@@ -36,7 +36,8 @@ const propertySchema = z.object({
 })
 
 const searchSchema = z.object({
-  query: z.string().trim().min(2)
+  query: z.string().trim().min(2),
+  type: z.string().trim().optional().nullable()
 })
 
 const sendSuccess = <T>(res: Parameters<RequestHandler>[1], data: T, status = 200) =>
@@ -117,7 +118,7 @@ export const remove: RequestHandler = async (req, res, next) => {
 export const search: RequestHandler = async (req, res, next) => {
   try {
     const body = searchSchema.parse(req.body)
-    return sendSuccess(res, await propertiesService.searchProperties(req.db!, body.query))
+    return sendSuccess(res, await propertiesService.searchProperties(req.db!, body.query, { type: body.type }))
   } catch (err) {
     return next(err)
   }
