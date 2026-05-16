@@ -941,12 +941,7 @@ const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView
         ) : (
           <Home className="h-14 w-14 text-blue-500" />
         )}
-        <div className="absolute left-3 top-3 grid gap-1">
-          <Badge className="w-fit bg-blue-600 text-white shadow-sm">AGENCIA {externalBadgeName(property)}</Badge>
-          <span className="w-fit rounded bg-white/90 px-2 py-1 text-xs font-medium text-slate-900 shadow-sm">
-            {externalAgencyName(property)}
-          </span>
-        </div>
+        <Badge className="absolute left-3 top-3 w-fit bg-blue-600 text-white shadow-sm">AGENCIA {externalBadgeName(property)}</Badge>
       </div>
       <div className="flex flex-1 flex-col gap-3 bg-card p-4">
         <div className="min-h-[68px]">

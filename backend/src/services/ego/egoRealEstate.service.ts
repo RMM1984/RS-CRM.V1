@@ -269,6 +269,14 @@ export async function fetchPage(vui: string, offset: number) {
           lng: 'en-gb',
           oar: 1
         },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+          Referer: 'https://www.vicensash.com/',
+          Origin: 'https://www.vicensash.com',
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'en-GB,en;q=0.9',
+          'Cache-Control': 'no-cache'
+        },
         timeout: 30000
       })
 
