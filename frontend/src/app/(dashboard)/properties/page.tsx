@@ -24,6 +24,7 @@ import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -270,6 +271,9 @@ export default function PropertiesPage() {
   const [shortlistTarget, setShortlistTarget] = useState<Property | ExternalProperty | null>(null)
   const [duplicateShortlist, setDuplicateShortlist] = useState<{ contactId: string; contactName: string } | null>(null)
   const [toast, setToast] = useState<{ contactId: string; contactName: string } | null>(null)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<Property | null>(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
   const propertiesQuery = useProperties(filters)
@@ -478,6 +482,21 @@ export default function PropertiesPage() {
     setShortlistTarget(null)
   }
 
+  const confirmArchive = async () => {
+    if (!archiveTarget) return
+
+    setConfirmLoading(true)
+    try {
+      await deleteProperty.mutateAsync(archiveTarget.id)
+      setNotice({ type: 'success', message: `Propiedad ${archiveTarget.title} archivada.` })
+    } catch {
+      setNotice({ type: 'error', message: 'No se pudo archivar la propiedad. Intentalo de nuevo.' })
+    } finally {
+      setConfirmLoading(false)
+      setArchiveTarget(null)
+    }
+  }
+
   const skeleton = useMemo(() => Array.from({ length: 6 }, (_, index) => index), [])
 
   return (
@@ -625,7 +644,7 @@ export default function PropertiesPage() {
           <SectionTitle count={exclusiveCount} label="EXCLUSIVAS" tone="green" />
           {exclusiveCount ? (
             <PropertyCollection
-              onArchive={(property) => deleteProperty.mutate(property.id)}
+              onArchive={(property) => setArchiveTarget(property)}
               onEdit={(property) => {
                 setPropertyModal(property)
                 setIsPropertyModalOpen(true)
@@ -708,6 +727,35 @@ export default function PropertiesPage() {
               </button>
             </div>
             <Button onClick={() => setToast(null)} size="icon" variant="ghost">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        danger
+        confirmLabel="Si, archivar"
+        isOpen={Boolean(archiveTarget)}
+        loading={confirmLoading}
+        message={archiveTarget ? `La propiedad ${archiveTarget.title} pasara a archivada y dejara de aparecer en busquedas.` : ''}
+        onCancel={() => {
+          if (!confirmLoading) setArchiveTarget(null)
+        }}
+        onConfirm={() => void confirmArchive()}
+        title="Archivar esta propiedad?"
+      />
+
+      {notice ? (
+        <div
+          className={cn(
+            'fixed bottom-5 left-5 z-[95] max-w-sm rounded-md border p-4 text-sm shadow-xl',
+            notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'
+          )}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-medium">{notice.message}</p>
+            <Button onClick={() => setNotice(null)} size="icon" variant="ghost">
               <X className="h-4 w-4" />
             </Button>
           </div>

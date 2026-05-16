@@ -34,6 +34,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
@@ -137,6 +138,9 @@ export default function OperationsPage() {
   const [modalStage, setModalStage] = useState<OperationStage>('lead')
   const [editing, setEditing] = useState<Operation | null>(null)
   const [selected, setSelected] = useState<Operation | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Operation | null>(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [contactSearch, setContactSearch] = useState('')
@@ -244,10 +248,23 @@ export default function OperationsPage() {
     await updateStage.mutateAsync({ id, stage })
   }
 
-  const remove = async (operation: Operation) => {
-    if (!window.confirm('¿Eliminar esta operacion?')) return
-    await deleteOperation.mutateAsync(operation.id)
-    if (selected?.id === operation.id) setSelected(null)
+  const remove = (operation: Operation) => {
+    setDeleteTarget(operation)
+  }
+
+  const confirmDeleteOperation = async () => {
+    if (!deleteTarget) return
+    setConfirmLoading(true)
+    try {
+      await deleteOperation.mutateAsync(deleteTarget.id)
+      if (selected?.id === deleteTarget.id) setSelected(null)
+      setNotice({ type: 'success', message: 'Operacion eliminada correctamente.' })
+    } catch {
+      setNotice({ type: 'error', message: 'No se pudo eliminar la operacion.' })
+    } finally {
+      setConfirmLoading(false)
+      setDeleteTarget(null)
+    }
   }
 
   return (
@@ -354,6 +371,35 @@ export default function OperationsPage() {
           onEdit={openEdit}
           onStage={(stage) => updateStage.mutateAsync({ id: selected.id, stage })}
         />
+      ) : null}
+
+      <ConfirmDialog
+        danger
+        confirmLabel="Si, eliminar"
+        isOpen={Boolean(deleteTarget)}
+        loading={confirmLoading}
+        message={
+          deleteTarget
+            ? `Se eliminara la operacion de ${deleteTarget.contact_name}. Esta accion no se puede deshacer.`
+            : ''
+        }
+        title="Eliminar esta operacion?"
+        onCancel={() => {
+          if (!confirmLoading) setDeleteTarget(null)
+        }}
+        onConfirm={() => void confirmDeleteOperation()}
+      />
+
+      {notice ? (
+        <div
+          className={`fixed bottom-6 right-6 z-50 rounded-md border px-4 py-3 text-sm shadow-lg ${
+            notice.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {notice.message}
+        </div>
       ) : null}
     </div>
   )

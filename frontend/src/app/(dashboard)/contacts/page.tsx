@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -189,6 +190,13 @@ export default function ContactsPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [operationItem, setOperationItem] = useState<ShortlistItem | null>(null)
+  const [confirmAction, setConfirmAction] = useState<
+    | { type: 'contact'; id: string; name: string }
+    | { type: 'shortlist'; id: string; propertyTitle: string; contactName: string }
+    | null
+  >(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const contactsQuery = useContacts(filters)
   const contactQuery = useContact(selectedContactId)
@@ -278,6 +286,27 @@ export default function ContactsPage() {
   const onAddInteraction = async (values: InteractionForm) => {
     await addInteraction.mutateAsync(values as AddInteractionDto)
     interactionForm.reset({ type: 'note', content: '' })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmAction) return
+
+    setConfirmLoading(true)
+    try {
+      if (confirmAction.type === 'contact') {
+        await deleteContact.mutateAsync(confirmAction.id)
+        setNotice({ type: 'success', message: `Contacto ${confirmAction.name} eliminado.` })
+        if (selectedContactId === confirmAction.id) setSelectedContactId(null)
+      } else {
+        await removeFromShortlist.mutateAsync(confirmAction.id)
+        setNotice({ type: 'success', message: `${confirmAction.propertyTitle} eliminado del expediente.` })
+      }
+    } catch {
+      setNotice({ type: 'error', message: 'No se pudo completar la accion. Intentalo de nuevo.' })
+    } finally {
+      setConfirmLoading(false)
+      setConfirmAction(null)
+    }
   }
 
   const skeletonRows = useMemo(() => Array.from({ length: 6 }, (_, index) => index), [])
@@ -450,7 +479,7 @@ export default function ContactsPage() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
-                        onClick={() => deleteContact.mutate(contact.id)}
+                        onClick={() => setConfirmAction({ type: 'contact', id: contact.id, name: contact.name })}
                         size="icon"
                         title="Archivar"
                         variant="ghost"
@@ -714,9 +743,12 @@ export default function ContactsPage() {
                         setOperationItem(item)
                       }}
                       onDelete={() => {
-                        if (window.confirm('Quieres eliminar esta propiedad del expediente?')) {
-                          removeFromShortlist.mutate(item.id)
-                        }
+                        setConfirmAction({
+                          type: 'shortlist',
+                          id: item.id,
+                          propertyTitle: item.property_title || item.external_data?.title || 'esta propiedad',
+                          contactName: selectedContact.name
+                        })
                       }}
                       onEditNote={() => {
                         setEditingNoteId(item.id)
@@ -774,6 +806,41 @@ export default function ContactsPage() {
           item={operationItem}
           onClose={() => setOperationItem(null)}
         />
+      ) : null}
+
+      <ConfirmDialog
+        danger
+        confirmLabel={confirmAction?.type === 'contact' ? 'Si, eliminar' : 'Si, eliminar'}
+        isOpen={Boolean(confirmAction)}
+        loading={confirmLoading}
+        message={
+          confirmAction?.type === 'contact'
+            ? `Se eliminara ${confirmAction.name} y todo su historial de interacciones. Esta accion no se puede deshacer.`
+            : confirmAction?.type === 'shortlist'
+              ? `Se eliminara ${confirmAction.propertyTitle} del expediente de ${confirmAction.contactName}.`
+              : ''
+        }
+        onCancel={() => {
+          if (!confirmLoading) setConfirmAction(null)
+        }}
+        onConfirm={() => void runConfirmedAction()}
+        title={confirmAction?.type === 'contact' ? 'Eliminar este contacto?' : 'Eliminar del expediente?'}
+      />
+
+      {notice ? (
+        <div
+          className={cn(
+            'fixed bottom-5 right-5 z-[95] max-w-sm rounded-md border p-4 text-sm shadow-xl',
+            notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'
+          )}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-medium">{notice.message}</p>
+            <Button onClick={() => setNotice(null)} size="icon" variant="ghost">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   )
