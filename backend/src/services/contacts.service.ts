@@ -271,6 +271,39 @@ export const deleteContact = async (db: PoolClient, id: string, user: AuthUser) 
     values.push(user.id)
   }
 
+  const contactResult = await db.query(
+    `SELECT ${contactSelect}
+    FROM contacts
+    WHERE id = $1 AND active = true ${agentClause}`,
+    values
+  )
+  const contact = contactResult.rows[0]
+
+  if (!contact) {
+    return null
+  }
+
+  await db.query(
+    `UPDATE operations
+    SET
+      active = false,
+      stage = 'lost',
+      notes = concat_ws(E'\n', nullif(notes, ''), '[Contacto eliminado]'),
+      updated_at = now()
+    WHERE contact_id = $1`,
+    [id]
+  )
+
+  await db.query(
+    `UPDATE visits
+    SET status = 'cancelled', updated_at = now()
+    WHERE contact_id = $1`,
+    [id]
+  )
+
+  await db.query('DELETE FROM property_shortlist WHERE contact_id = $1', [id])
+  await db.query('DELETE FROM contact_interactions WHERE contact_id = $1', [id])
+
   const { rows } = await db.query(
     `UPDATE contacts
     SET active = false, updated_at = now()

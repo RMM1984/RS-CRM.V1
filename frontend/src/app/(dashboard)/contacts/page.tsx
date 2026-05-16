@@ -815,7 +815,7 @@ export default function ContactsPage() {
         loading={confirmLoading}
         message={
           confirmAction?.type === 'contact'
-            ? `Se eliminara ${confirmAction.name} y todo su historial de interacciones. Esta accion no se puede deshacer.`
+            ? 'Se cancelaran todas sus operaciones activas y visitas programadas. Esta accion no se puede deshacer.'
             : confirmAction?.type === 'shortlist'
               ? `Se eliminara ${confirmAction.propertyTitle} del expediente de ${confirmAction.contactName}.`
               : ''
@@ -824,7 +824,7 @@ export default function ContactsPage() {
           if (!confirmLoading) setConfirmAction(null)
         }}
         onConfirm={() => void runConfirmedAction()}
-        title={confirmAction?.type === 'contact' ? 'Eliminar este contacto?' : 'Eliminar del expediente?'}
+        title={confirmAction?.type === 'contact' ? `Eliminar a ${confirmAction.name}?` : 'Eliminar del expediente?'}
       />
 
       {notice ? (
