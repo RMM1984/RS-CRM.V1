@@ -53,7 +53,7 @@ const zoneValue = (property: DetailProperty) =>
   'zone' in property && property.zone ? property.zone : 'address' in property ? property.address : property.city
 
 const sourceUrl = (property: DetailProperty) =>
-  'source_url' in property && property.source_url ? property.source_url : null
+  'source_url' in property && property.source_url && /^https?:\/\//i.test(property.source_url) ? property.source_url : null
 
 const priceAnalysis = (pricePerM2: number) => {
   if (pricePerM2 < JAVEA_MARKET_STATS.avgPricePerM2) {

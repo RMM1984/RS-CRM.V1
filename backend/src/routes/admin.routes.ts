@@ -5,3 +5,4 @@ import { requireRole } from '../middleware/requireRole'
 export const adminRoutes = Router()
 
 adminRoutes.post('/tenants', requireRole('admin'), adminController.createTenant)
+adminRoutes.get('/ego/status', requireRole('admin'), adminController.egoStatus)

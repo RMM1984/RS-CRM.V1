@@ -21,7 +21,7 @@ export type ExternalProperty = {
   operation: 'sale' | 'rent'
   type: string
   detected_type?: string
-  source: 'kyero' | 'sooprema' | 'crown_property' | 'other'
+  source: 'kyero' | 'sooprema' | 'crown_property' | 'ego_real_estate' | 'other'
   source_url: string
   source_agency_name?: string
   source_agency_phone?: string
@@ -36,6 +36,7 @@ export type ExternalProperty = {
   zone: string
   badge?: string | null
   search_text: string
+  deleted_at?: string | null
 }
 
 export class PropertySyncService {

@@ -1,6 +1,6 @@
 export type PropertyOperation = 'sale' | 'rent'
 export type PropertyStatus = 'draft' | 'active' | 'available' | 'reserved' | 'sold' | 'rented' | 'archived'
-export type PropertySource = 'internal' | 'kyero' | 'sooprema' | 'crown_property' | 'other'
+export type PropertySource = 'internal' | 'kyero' | 'sooprema' | 'crown_property' | 'ego_real_estate' | 'other'
 export type PropertyType = 'piso' | 'apartamento' | 'chalet' | 'villa' | 'local' | 'oficina' | string
 export type ShortlistStatus = 'investigating' | 'visit_pending' | 'interested' | 'discarded'
 
@@ -61,6 +61,7 @@ export type ExternalProperty = {
   zone?: string
   badge?: string | null
   search_text?: string
+  deleted_at?: string | null
 }
 
 export type PropertiesPageData = {
@@ -140,6 +141,7 @@ export type ShortlistItem = {
   property_rooms?: number | null
   property_surface_m2?: number | string | null
   property_source_url?: string | null
+  external_deleted_at?: string | null
   property_images?: PropertyImage[]
 }
 

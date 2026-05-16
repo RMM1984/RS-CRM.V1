@@ -808,9 +808,11 @@ const ShortlistCard = ({
     item.external_data?.image_url ||
     item.external_data?.images?.[0]?.url
   const isInternal = source === 'internal'
+  const deletedAt = item.external_deleted_at || item.external_data?.deleted_at
+  const isDeleted = Boolean(deletedAt)
 
   return (
-    <div className="grid gap-3 rounded-md border p-3">
+    <div className={cn('grid gap-3 rounded-md border p-3', isDeleted && 'opacity-60')}>
       <div className="grid grid-cols-[56px_1fr] gap-3">
         <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-md bg-muted">
           {imageUrl ? (
@@ -829,6 +831,11 @@ const ShortlistCard = ({
           <Badge className={cn('mt-2', isInternal ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800')}>
             {isInternal ? 'EXCLUSIVA' : 'AGENCIA'}
           </Badge>
+          {isDeleted ? (
+            <p className="mt-2 text-xs font-semibold text-amber-700">
+              Ya no disponible en mercado · Retirada el {new Date(deletedAt as string).toLocaleDateString('es-ES')}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -845,14 +852,14 @@ const ShortlistCard = ({
             </option>
           ))}
         </select>
-        {item.status === 'interested' ? (
+        {item.status === 'interested' && !isDeleted ? (
           <Button className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={onConvert} size="sm" type="button">
             + Convertir en operacion
           </Button>
         ) : null}
       </div>
 
-      {editingNoteId === item.id ? (
+      {!isDeleted && editingNoteId === item.id ? (
         <div className="grid gap-2">
           <Input onChange={(event) => onUpdateNote(event.target.value)} value={noteDraft} />
           <div className="flex gap-2">
@@ -868,17 +875,19 @@ const ShortlistCard = ({
         <p className="rounded-md bg-muted/50 p-2 text-sm text-muted-foreground">{item.notes}</p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onOpen} size="sm" type="button" variant="outline">
-          Ver
-        </Button>
-        <Button onClick={onEditNote} size="sm" type="button" variant="outline">
-          Nota
-        </Button>
-        <Button onClick={onDelete} size="sm" type="button" variant="outline">
-          Eliminar
-        </Button>
-      </div>
+      {!isDeleted ? (
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={onOpen} size="sm" type="button" variant="outline">
+            Ver
+          </Button>
+          <Button onClick={onEditNote} size="sm" type="button" variant="outline">
+            Nota
+          </Button>
+          <Button onClick={onDelete} size="sm" type="button" variant="outline">
+            Eliminar
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

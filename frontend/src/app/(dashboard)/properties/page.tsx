@@ -111,6 +111,7 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   kyero: 'Kyero',
   sooprema: 'Sooprema',
   crown_property: 'Crown Property',
+  ego_real_estate: 'Ego Real Estate',
   other: 'agencias'
 }
 
@@ -996,7 +997,7 @@ const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView
           <Home className="h-14 w-14 text-blue-500" />
         )}
         <Badge className="absolute left-3 top-3 bg-blue-600 text-white shadow-sm">
-          AGENCIA {formatPropertySource(property.source)}
+          AGENCIA {property.badge || property.source_agency_name || formatPropertySource(property.source)}
         </Badge>
       </div>
       <div className="flex flex-1 flex-col gap-3 bg-card p-4">

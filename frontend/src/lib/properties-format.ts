@@ -3,6 +3,7 @@ export const formatPropertySource = (source?: string | null) => {
 
   const labels: Record<string, string> = {
     crown_property: 'Crown Property',
+    ego_real_estate: 'Ego Real Estate',
     kyero: 'Kyero',
     sooprema: 'Sooprema',
     internal: 'Exclusiva'

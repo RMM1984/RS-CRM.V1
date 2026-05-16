@@ -10,7 +10,9 @@
     "test": "jest",
     "migrate:tenant": "tsx src/db/migrate.ts",
     "seed:admin": "tsx src/db/seedAdmin.ts",
-    "seed:crown": "ts-node src/scripts/seed-crown-properties.ts"
+    "seed:crown": "ts-node src/scripts/seed-crown-properties.ts",
+    "sync:ego": "ts-node src/scripts/sync-ego.ts",
+    "seed:contacts": "ts-node src/scripts/seed-contacts.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",
@@ -22,6 +24,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
     "pg": "^8.16.3",
     "zod": "^4.1.13"
   },

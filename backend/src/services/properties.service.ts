@@ -15,6 +15,7 @@ import {
   passesHardFilters,
   scoreProperty
 } from './search/queryParser'
+import { searchEgoProperties } from './ego/egoRealEstate.service'
 
 export type PropertyFilters = {
   type?: string
@@ -605,7 +606,9 @@ export const searchProperties = async (db: PoolClient, query: string, overrides?
 
   await getCrownProperties()
   const crownKeywords = parseCrownSearchQuery(query, overrides)
-  const external = searchCrownProperties(query, overrides)
+  const crownExternal = searchCrownProperties(query, overrides)
+  const egoExternal = await searchEgoProperties(query, overrides)
+  const external = [...crownExternal, ...egoExternal]
   let internal: unknown[] = []
 
   try {
@@ -696,6 +699,7 @@ export const listShortlist = async (db: PoolClient, contactId?: string) => {
        p.bedrooms AS property_rooms,
        p.sqm AS property_surface_m2,
        p.source_url AS property_source_url,
+       ego.deleted_at AS external_deleted_at,
        COALESCE(
          (
            SELECT json_agg(pi ORDER BY pi.created_at)
@@ -707,6 +711,13 @@ export const listShortlist = async (db: PoolClient, contactId?: string) => {
      FROM property_shortlist ps
      LEFT JOIN contacts c ON c.id = ps.contact_id
      LEFT JOIN properties p ON p.id = ps.property_id
+     LEFT JOIN public.ego_properties ego
+       ON ps.property_id IS NULL
+      AND (
+        ego.external_id = ps.external_data->>'ref'
+        OR ego.id::text = ps.external_data->>'id'
+        OR ('ego:' || ego.external_id) = ps.external_data->>'source_url'
+      )
      ${where}
      ORDER BY ps.created_at DESC`,
     values
