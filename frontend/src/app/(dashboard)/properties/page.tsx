@@ -115,6 +115,20 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   other: 'agencias'
 }
 
+const externalAgencyName = (property: ExternalProperty) => {
+  if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
+  if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
+
+  return property.source_agency_name || property.badge || formatPropertySource(property.source)
+}
+
+const externalBadgeName = (property: ExternalProperty) => {
+  if (property.source === 'crown_property') return 'Crown Property'
+  if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
+
+  return formatPropertySource(property.source)
+}
+
 const filterTypeLabels: Record<string, string> = {
   apartment: 'piso apartamento',
   apartment_loft: 'loft estudio',
@@ -190,9 +204,8 @@ const uiHasWholeTerm = (text: string, term: string) => {
 
 const externalMatchesFilters = (property: ExternalProperty, filters: PropertyFilters) => {
   if (filters.source && filters.source !== 'all') {
-    if (filters.source === 'internal' && property.source !== 'crown_property') return false
-    if (filters.source === 'other' && property.source === 'crown_property') return false
-    if (filters.source !== 'internal' && filters.source !== 'other' && property.source !== filters.source) return false
+    if (filters.source === 'internal') return false
+    if (filters.source !== 'other' && property.source !== filters.source) return false
   }
 
   if (filters.operation && filters.operation !== 'all' && property.operation !== filters.operation) {
@@ -317,9 +330,8 @@ export default function PropertiesPage() {
     (searchResult ? searchResult.external : localExternalProperties).filter((property) =>
       externalMatchesFilters(property, filters)
     )
-  const crownProperties = externalProperties.filter((property) => property.source === 'crown_property')
-  const agencyProperties = externalProperties.filter((property) => property.source !== 'crown_property')
-  const exclusiveCount = internalProperties.length + crownProperties.length
+  const agencyProperties = externalProperties
+  const exclusiveCount = internalProperties.length
   const total = searchResult ? exclusiveCount + agencyProperties.length : propertiesQuery.data?.total ?? 0
   const selectedProperty = propertyQuery.data
 
@@ -607,29 +619,17 @@ export default function PropertiesPage() {
         <>
           <SectionTitle count={exclusiveCount} label="EXCLUSIVAS" tone="green" />
           {exclusiveCount ? (
-            <>
-              {internalProperties.length ? (
-                <PropertyCollection
-                  onArchive={(property) => deleteProperty.mutate(property.id)}
-                  onEdit={(property) => {
-                    setPropertyModal(property)
-                    setIsPropertyModalOpen(true)
-                  }}
-                  onSave={(property) => setShortlistTarget(property)}
-                  onView={(property) => router.push(`/properties/${property.id}`)}
-                  properties={internalProperties}
-                  view={view}
-                />
-              ) : null}
-              {crownProperties.length ? (
-                <ExternalExclusiveCollection
-                  onSave={(property) => setShortlistTarget(property)}
-                  onView={openExternalDetail}
-                  properties={crownProperties}
-                  view={view}
-                />
-              ) : null}
-            </>
+            <PropertyCollection
+              onArchive={(property) => deleteProperty.mutate(property.id)}
+              onEdit={(property) => {
+                setPropertyModal(property)
+                setIsPropertyModalOpen(true)
+              }}
+              onSave={(property) => setShortlistTarget(property)}
+              onView={(property) => router.push(`/properties/${property.id}`)}
+              properties={internalProperties}
+              view={view}
+            />
           ) : (
             <EmptyState text="No hay exclusivas con estos filtros." />
           )}
@@ -880,24 +880,6 @@ const ExternalCollection = ({
   )
 }
 
-const ExternalExclusiveCollection = ({
-  onSave,
-  onView,
-  properties,
-  view
-}: {
-  onSave: (property: ExternalProperty) => void
-  onView: (property: ExternalProperty) => void
-  properties: ExternalProperty[]
-  view: 'grid' | 'list'
-}) => (
-  <div className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
-    {properties.map((property) => (
-      <ExternalExclusiveCard key={property.id} onSave={() => onSave(property)} onView={() => onView(property)} property={property} />
-    ))}
-  </div>
-)
-
 const PropertyCard = ({
   onArchive,
   onEdit,
@@ -948,43 +930,6 @@ const PropertyCard = ({
   </Card>
 )
 
-const ExternalExclusiveCard = ({ onSave, onView, property }: { onSave: () => void; onView: () => void; property: ExternalProperty }) => {
-  const imageUrl = property.image_url || property.images?.[0]?.url
-
-  return (
-    <Card className="flex h-full flex-col overflow-hidden">
-      <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
-        {imageUrl ? (
-          <img alt={property.title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
-        ) : (
-          <div className="grid h-16 w-16 place-items-center rounded-full bg-slate-900 text-lg font-bold text-white">
-            {initials(property.title)}
-          </div>
-        )}
-        <Badge className="absolute left-3 top-3 bg-emerald-600 text-white shadow-sm">EXCLUSIVA</Badge>
-      </div>
-      <div className="flex flex-1 flex-col gap-3 bg-card p-4">
-        <div className="min-h-[68px]">
-          <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
-          <p className="text-sm text-muted-foreground">{property.city}</p>
-        </div>
-        <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
-        <FeatureRow property={property} />
-        <p className="text-xs text-muted-foreground">Agente: Crown Property Jávea</p>
-        <div className="mt-auto grid grid-cols-2 gap-2">
-          <Button onClick={onView} variant="outline">
-            Ver detalle
-          </Button>
-          <Button className="gap-2" onClick={onSave}>
-            <Save className="h-4 w-4" />
-            Guardar
-          </Button>
-        </div>
-      </div>
-    </Card>
-  )
-}
-
 const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView: () => void; property: ExternalProperty }) => {
   const imageUrl = property.image_url || property.images?.[0]?.url
 
@@ -996,14 +941,18 @@ const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView
         ) : (
           <Home className="h-14 w-14 text-blue-500" />
         )}
-        <Badge className="absolute left-3 top-3 bg-blue-600 text-white shadow-sm">
-          AGENCIA {property.badge || property.source_agency_name || formatPropertySource(property.source)}
-        </Badge>
+        <div className="absolute left-3 top-3 grid gap-1">
+          <Badge className="w-fit bg-blue-600 text-white shadow-sm">AGENCIA {externalBadgeName(property)}</Badge>
+          <span className="w-fit rounded bg-white/90 px-2 py-1 text-xs font-medium text-slate-900 shadow-sm">
+            {externalAgencyName(property)}
+          </span>
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-3 bg-card p-4">
         <div className="min-h-[68px]">
           <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{property.title}</h3>
           <p className="text-sm text-muted-foreground">{property.city}</p>
+          <p className="text-xs font-medium text-muted-foreground">{externalAgencyName(property)}</p>
         </div>
         <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
         <FeatureRow property={property} />

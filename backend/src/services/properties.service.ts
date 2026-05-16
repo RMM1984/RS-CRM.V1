@@ -170,7 +170,13 @@ export const listProperties = async (db: PoolClient, filters: PropertyFilters) =
   add('operation', filters.operation)
   add('status', filters.status)
   add('city', filters.city)
-  add('source', filters.source === 'all' ? undefined : filters.source)
+  if (filters.source && filters.source !== 'all') {
+    if (filters.source === 'other') {
+      clauses.push(`source <> 'internal'`)
+    } else {
+      add('source', filters.source)
+    }
+  }
 
   if (filters.search) {
     values.push(`%${filters.search}%`)

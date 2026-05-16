@@ -9,6 +9,20 @@ import { Card } from '@/components/ui/card'
 import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import type { ExternalProperty } from '@/types/properties'
 
+const agencyName = (property: ExternalProperty) => {
+  if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
+  if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
+
+  return property.source_agency_name || property.badge || formatPropertySource(property.source)
+}
+
+const badgeName = (property: ExternalProperty) => {
+  if (property.source === 'crown_property') return 'Crown Property'
+  if (property.source === 'ego_real_estate') return agencyName(property)
+
+  return formatPropertySource(property.source)
+}
+
 export default function ExternalPropertyPage({ params }: { params: { id: string } }) {
   const [property, setProperty] = useState<ExternalProperty | null>(null)
 
@@ -35,7 +49,8 @@ export default function ExternalPropertyPage({ params }: { params: { id: string 
     <div className="grid gap-5">
       <div className="flex items-center justify-between">
         <div>
-          <Badge className="bg-blue-600 text-white">AGENCIA {formatPropertySource(property.source)}</Badge>
+          <Badge className="bg-blue-600 text-white">AGENCIA {badgeName(property)}</Badge>
+          <p className="mt-2 text-sm font-medium text-muted-foreground">{agencyName(property)}</p>
           <h2 className="mt-3 text-3xl font-semibold">{property.title}</h2>
           <p className="text-sm text-muted-foreground">{property.city}</p>
         </div>
@@ -69,7 +84,7 @@ export default function ExternalPropertyPage({ params }: { params: { id: string 
 
           <Card className="grid gap-3 p-5">
             <h3 className="font-semibold">Agencia</h3>
-            <p className="text-sm">{property.source_agency_name || 'Agencia externa'}</p>
+            <p className="text-sm">{agencyName(property)}</p>
             <div className="grid gap-2">
               {property.source_agency_phone ? (
                 <Button asChild className="gap-2">

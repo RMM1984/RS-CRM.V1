@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { JAVEA_MARKET_STATS } from '@/data/marketStats'
 import { useContacts } from '@/hooks/useContacts'
 import { useProperty, useSaveToShortlist } from '@/hooks/useProperties'
-import { formatPropertyPrice } from '@/lib/properties-format'
+import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
 import type { ExternalProperty, Property } from '@/types/properties'
 
@@ -54,6 +54,22 @@ const zoneValue = (property: DetailProperty) =>
 
 const sourceUrl = (property: DetailProperty) =>
   'source_url' in property && property.source_url && /^https?:\/\//i.test(property.source_url) ? property.source_url : null
+
+const detailAgencyName = (property: DetailProperty) => {
+  if (!isExternalProperty(property)) return null
+  if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
+  if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
+
+  return property.source_agency_name || property.badge || formatPropertySource(property.source)
+}
+
+const detailBadgeText = (property: DetailProperty) => {
+  if (!isExternalProperty(property)) return 'EXCLUSIVA'
+  if (property.source === 'crown_property') return 'AGENCIA Crown Property'
+  if (property.source === 'ego_real_estate') return `AGENCIA ${detailAgencyName(property)}`
+
+  return 'AGENCIA'
+}
 
 const priceAnalysis = (pricePerM2: number) => {
   if (pricePerM2 < JAVEA_MARKET_STATS.avgPricePerM2) {
@@ -176,7 +192,9 @@ export default function PropertyDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <Badge className="bg-emerald-600 px-3 py-1 text-white">EXCLUSIVA</Badge>
+          <Badge className={cn('px-3 py-1 text-white', isExternalProperty(property) ? 'bg-blue-600' : 'bg-emerald-600')}>
+            {detailBadgeText(property)}
+          </Badge>
         </div>
         <Button className="absolute right-4 top-4 z-10 gap-2" onClick={() => setIsSaveOpen(true)}>
           <Save className="h-4 w-4" />
@@ -263,7 +281,7 @@ export default function PropertyDetailPage() {
           <Card className="grid gap-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold">
               <Building2 className="h-5 w-5 text-primary" />
-              {property.source_agency_name || 'Crown Property Jávea'}
+              {detailAgencyName(property) || 'RS-CRM'}
             </h2>
             <p className="text-sm text-muted-foreground">Ref: {refValue(property)}</p>
             <Button asChild className="gap-2">
