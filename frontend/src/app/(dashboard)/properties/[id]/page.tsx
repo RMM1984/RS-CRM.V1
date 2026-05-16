@@ -58,6 +58,7 @@ const sourceUrl = (property: DetailProperty) =>
 const detailAgencyName = (property: DetailProperty) => {
   if (!isExternalProperty(property)) return null
   if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
+  if (property.source === 'vicens_ash') return property.source_agency_name || 'Vicens Ash'
   if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
 
   return property.source_agency_name || property.badge || formatPropertySource(property.source)
@@ -66,6 +67,7 @@ const detailAgencyName = (property: DetailProperty) => {
 const detailBadgeText = (property: DetailProperty) => {
   if (!isExternalProperty(property)) return 'EXCLUSIVA'
   if (property.source === 'crown_property') return 'AGENCIA Crown Property'
+  if (property.source === 'vicens_ash') return 'AGENCIA Vicens Ash'
   if (property.source === 'ego_real_estate') return `AGENCIA ${detailAgencyName(property)}`
 
   return 'AGENCIA'

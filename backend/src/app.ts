@@ -1,6 +1,5 @@
 import cors from 'cors'
 import express from 'express'
-import cron from 'node-cron'
 import { pool } from './config/db'
 import { env } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
@@ -16,7 +15,6 @@ import { propertiesRoutes } from './routes/properties.routes'
 import { shortlistRoutes } from './routes/shortlist.routes'
 import { usersRoutes } from './routes/users.routes'
 import { visitsRoutes } from './routes/visits.routes'
-import { syncAllAgencies } from './services/ego/egoRealEstate.service'
 import { buildCache } from './services/scrapers/crownProperty.scraper'
 
 export const app = express()
@@ -70,10 +68,3 @@ app.use('/api/admin', adminRoutes)
 app.use(errorHandler)
 
 buildCache().catch(console.error)
-
-cron.schedule('0 */6 * * *', () => {
-  console.log('🔄 Iniciando sync Ego Real Estate...')
-  syncAllAgencies().catch(console.error)
-})
-
-syncAllAgencies().catch(console.error)

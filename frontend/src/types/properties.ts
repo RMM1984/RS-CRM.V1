@@ -1,6 +1,6 @@
 export type PropertyOperation = 'sale' | 'rent'
 export type PropertyStatus = 'draft' | 'active' | 'available' | 'reserved' | 'sold' | 'rented' | 'archived'
-export type PropertySource = 'internal' | 'kyero' | 'sooprema' | 'crown_property' | 'ego_real_estate' | 'other'
+export type PropertySource = 'internal' | 'kyero' | 'sooprema' | 'crown_property' | 'ego_real_estate' | 'vicens_ash' | 'other'
 export type PropertyType = 'piso' | 'apartamento' | 'chalet' | 'villa' | 'local' | 'oficina' | string
 export type ShortlistStatus = 'investigating' | 'visit_pending' | 'interested' | 'discarded'
 

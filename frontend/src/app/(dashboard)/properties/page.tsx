@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useContacts } from '@/hooks/useContacts'
+import { useEgoProperties } from '@/hooks/useEgoProperties'
 import {
   useCreateProperty,
   useDeleteProperty,
@@ -46,6 +47,7 @@ import type {
   Property,
   PropertyFilters,
   PropertyOperation,
+  SearchKeywords,
   PropertySource,
   PropertyStatus
 } from '@/types/properties'
@@ -112,11 +114,13 @@ const sourceLabels: Record<PropertySource | 'all', string> = {
   sooprema: 'Sooprema',
   crown_property: 'Crown Property',
   ego_real_estate: 'Ego Real Estate',
+  vicens_ash: 'Vicens Ash',
   other: 'agencias'
 }
 
 const externalAgencyName = (property: ExternalProperty) => {
   if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
+  if (property.source === 'vicens_ash') return property.source_agency_name || 'Vicens Ash'
   if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
 
   return property.source_agency_name || property.badge || formatPropertySource(property.source)
@@ -124,6 +128,7 @@ const externalAgencyName = (property: ExternalProperty) => {
 
 const externalBadgeName = (property: ExternalProperty) => {
   if (property.source === 'crown_property') return 'Crown Property'
+  if (property.source === 'vicens_ash') return 'Vicens Ash'
   if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
 
   return formatPropertySource(property.source)
@@ -257,6 +262,7 @@ export default function PropertiesPage() {
   const [query, setQuery] = useState('')
   const [searchResult, setSearchResult] = useState<{
     keywords: string[]
+    parsed: SearchKeywords
     internal: Property[]
     external: ExternalProperty[]
   } | null>(null)
@@ -272,6 +278,7 @@ export default function PropertiesPage() {
   const propertyQuery = useProperty(selectedPropertyId)
   const contactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', search: '' })
   const propertySearch = usePropertySearch(query)
+  const egoProperties = useEgoProperties(searchResult?.parsed ?? null)
   const searchProperties = propertySearch.mutateAsync
   const createProperty = useCreateProperty()
   const updateProperty = useUpdateProperty()
@@ -327,7 +334,7 @@ export default function PropertiesPage() {
       search_text: `${item.title} ${item.address} ${item.external_badge ?? ''}`
     })) satisfies ExternalProperty[]
   const externalProperties: ExternalProperty[] =
-    (searchResult ? searchResult.external : localExternalProperties).filter((property) =>
+    (searchResult ? [...searchResult.external, ...egoProperties.results] : localExternalProperties).filter((property) =>
       externalMatchesFilters(property, filters)
     )
   const agencyProperties = externalProperties
@@ -400,7 +407,7 @@ export default function PropertiesPage() {
       ...result.keywords.features.slice(0, 4)
     ].filter(Boolean) as string[]
 
-    setSearchResult({ keywords: chips, internal: result.internal, external: result.external })
+    setSearchResult({ keywords: chips, parsed: result.keywords, internal: result.internal, external: result.external })
   }, [filters.operation, filters.type, searchProperties])
 
   const onSearch = async () => {
@@ -635,6 +642,20 @@ export default function PropertiesPage() {
           )}
 
           <SectionTitle count={agencyProperties.length} label="AGENCIAS" tone="blue" />
+          {egoProperties.loading ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 3 }, (_, index) => (
+                <Card className="grid h-72 place-items-center bg-blue-50 text-sm font-medium text-blue-900" key={index}>
+                  Cargando Vicens Ash...
+                </Card>
+              ))}
+            </div>
+          ) : null}
+          {egoProperties.error ? (
+            <Card className="border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+              No se pudieron cargar propiedades de Vicens Ash: {egoProperties.error}
+            </Card>
+          ) : null}
           <ExternalCollection
             onSave={(property) => setShortlistTarget(property)}
             onView={openExternalDetail}

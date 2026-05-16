@@ -11,6 +11,7 @@ import type { ExternalProperty } from '@/types/properties'
 
 const agencyName = (property: ExternalProperty) => {
   if (property.source === 'crown_property') return property.source_agency_name || 'Crown Property Jávea'
+  if (property.source === 'vicens_ash') return property.source_agency_name || 'Vicens Ash'
   if (property.source === 'ego_real_estate') return property.source_agency_name || property.badge || 'Vicens Ash'
 
   return property.source_agency_name || property.badge || formatPropertySource(property.source)
@@ -18,6 +19,7 @@ const agencyName = (property: ExternalProperty) => {
 
 const badgeName = (property: ExternalProperty) => {
   if (property.source === 'crown_property') return 'Crown Property'
+  if (property.source === 'vicens_ash') return 'Vicens Ash'
   if (property.source === 'ego_real_estate') return agencyName(property)
 
   return formatPropertySource(property.source)

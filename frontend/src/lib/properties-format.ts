@@ -4,6 +4,7 @@ export const formatPropertySource = (source?: string | null) => {
   const labels: Record<string, string> = {
     crown_property: 'Crown Property',
     ego_real_estate: 'Ego Real Estate',
+    vicens_ash: 'Vicens Ash',
     kyero: 'Kyero',
     sooprema: 'Sooprema',
     internal: 'Exclusiva'

@@ -15,7 +15,6 @@ import {
   passesHardFilters,
   scoreProperty
 } from './search/queryParser'
-import { searchEgoProperties } from './ego/egoRealEstate.service'
 
 export type PropertyFilters = {
   type?: string
@@ -613,8 +612,7 @@ export const searchProperties = async (db: PoolClient, query: string, overrides?
   await getCrownProperties()
   const crownKeywords = parseCrownSearchQuery(query, overrides)
   const crownExternal = searchCrownProperties(query, overrides)
-  const egoExternal = await searchEgoProperties(query, overrides)
-  const external = [...crownExternal, ...egoExternal]
+  const external = crownExternal
   let internal: unknown[] = []
 
   try {
