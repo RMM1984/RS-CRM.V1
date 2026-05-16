@@ -105,56 +105,7 @@ const propertyListSelect = `
   ) AS images
 `
 
-export const ensurePropertiesModuleSchema = async (db: PoolClient) => {
-  await db.query(`
-    ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_status_check;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS zip TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS operation TEXT NOT NULL DEFAULT 'sale';
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS plot_m2 NUMERIC;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS description TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS assigned_to UUID;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'internal';
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS source_url TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS source_agency_name TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS source_agency_phone TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS external_ref TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS external_badge TEXT;
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
-    ALTER TABLE properties ADD CONSTRAINT properties_status_check
-      CHECK (status IN ('draft', 'active', 'available', 'reserved', 'sold', 'rented', 'archived'));
-    ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_source_check;
-    ALTER TABLE properties ADD CONSTRAINT properties_source_check
-      CHECK (source IN ('internal', 'kyero', 'sooprema', 'crown_property', 'other'));
-
-    CREATE TABLE IF NOT EXISTS property_images (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-      url TEXT NOT NULL,
-      path TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-
-    CREATE TABLE IF NOT EXISTS property_shortlist (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID REFERENCES public.users(id),
-      contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
-      property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
-      external_data JSONB,
-      status TEXT DEFAULT 'investigating'
-        CHECK (status IN ('investigating', 'visit_pending', 'interested', 'discarded')),
-      notes TEXT,
-      created_at TIMESTAMPTZ DEFAULT now()
-    );
-
-    CREATE INDEX IF NOT EXISTS properties_source_idx ON properties(source);
-    CREATE INDEX IF NOT EXISTS properties_operation_idx ON properties(operation);
-    CREATE INDEX IF NOT EXISTS properties_city_idx ON properties(city);
-    CREATE INDEX IF NOT EXISTS property_shortlist_contact_id_idx ON property_shortlist(contact_id);
-  `)
-}
-
 export const listProperties = async (db: PoolClient, filters: PropertyFilters) => {
-  await ensurePropertiesModuleSchema(db)
   const clauses = ['active = true']
   const values: unknown[] = []
 
@@ -208,7 +159,6 @@ export const listProperties = async (db: PoolClient, filters: PropertyFilters) =
 }
 
 export const createProperty = async (db: PoolClient, data: PropertyInput, user: AuthUser) => {
-  await ensurePropertiesModuleSchema(db)
   const { rows } = await db.query(
     `INSERT INTO properties
     (title, address, city, zip, property_type, operation, price, sqm, bedrooms, bathrooms, status, description, assigned_to, source, active)
@@ -234,7 +184,6 @@ export const createProperty = async (db: PoolClient, data: PropertyInput, user: 
 }
 
 export const getProperty = async (db: PoolClient, id: string) => {
-  await ensurePropertiesModuleSchema(db)
   const property = await db.query(`SELECT ${propertySelect} FROM properties WHERE id = $1 AND active = true`, [id])
   if (!property.rows[0]) return null
   const images = await db.query('SELECT id, url, path, created_at FROM property_images WHERE property_id = $1 ORDER BY created_at', [id])
@@ -242,7 +191,6 @@ export const getProperty = async (db: PoolClient, id: string) => {
 }
 
 export const updateProperty = async (db: PoolClient, id: string, data: Partial<PropertyInput>) => {
-  await ensurePropertiesModuleSchema(db)
   const existing = await getProperty(db, id)
   if (!existing) return null
   if (existing.source !== 'internal') return { forbidden: true }
@@ -282,7 +230,6 @@ export const deleteProperty = async (db: PoolClient, id: string) => {
 }
 
 export const addPropertyImage = async (db: PoolClient, id: string, file?: UploadedFile, user?: AuthUser) => {
-  await ensurePropertiesModuleSchema(db)
   const filename = `${Date.now()}-${file?.originalname ?? 'image.jpg'}`
   const path = `${user?.tenant_slug ?? 'tenant'}/${id}/${filename}`
   let url = `/storage/property-images/${path}`
@@ -616,7 +563,6 @@ export const searchProperties = async (db: PoolClient, query: string, overrides?
   let internal: unknown[] = []
 
   try {
-    await ensurePropertiesModuleSchema(db)
     const { rows } = await db.query(
       `SELECT ${propertyListSelect}
        FROM properties
@@ -646,7 +592,6 @@ export const externalId = (property: ExternalProperty) =>
   crypto.createHash('sha1').update(property.source_url).digest('hex')
 
 export const createShortlistItem = async (db: PoolClient, data: ShortlistInput, user: AuthUser) => {
-  await ensurePropertiesModuleSchema(db)
 
   if (data.property_id) {
     const { rows } = await db.query(
@@ -688,7 +633,6 @@ export const createShortlistItem = async (db: PoolClient, data: ShortlistInput, 
 }
 
 export const listShortlist = async (db: PoolClient, contactId?: string) => {
-  await ensurePropertiesModuleSchema(db)
   const values: unknown[] = []
   const where = contactId ? 'WHERE ps.contact_id = $1' : ''
   if (contactId) values.push(contactId)

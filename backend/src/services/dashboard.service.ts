@@ -1,19 +1,6 @@
 import type { PoolClient } from 'pg'
-import { ensureContactsModuleSchema } from './contacts.service'
-import { ensureOperationsModuleSchema } from './operations.service'
-import { ensurePropertiesModuleSchema } from './properties.service'
-
-const ensureDashboardSchema = async (db: PoolClient) => {
-  await ensureContactsModuleSchema(db)
-  await ensurePropertiesModuleSchema(db)
-  await ensureOperationsModuleSchema(db)
-  await db.query(`
-    ALTER TABLE visits ADD COLUMN IF NOT EXISTS agent_id UUID REFERENCES public.users(id);
-  `)
-}
 
 export const getDashboard = async (db: PoolClient) => {
-  await ensureDashboardSchema(db)
 
   const { rows } = await db.query(`
     WITH

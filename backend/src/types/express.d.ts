@@ -18,6 +18,7 @@ declare global {
     interface Request {
       user?: AuthUser
       db?: PoolClient
+      schemaName?: string
     }
   }
 }

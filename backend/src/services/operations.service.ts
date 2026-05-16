@@ -48,44 +48,6 @@ const operationSelect = `
   u.email AS agent_email
 `
 
-export const ensureOperationsModuleSchema = async (db: PoolClient) => {
-  await db.query(`
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS status TEXT;
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS amount NUMERIC;
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS stage TEXT;
-    UPDATE operations SET stage = CASE
-      WHEN stage IS NOT NULL THEN stage
-      WHEN status = 'qualified' THEN 'visit'
-      WHEN status = 'tour' THEN 'visit'
-      WHEN status = 'closing' THEN 'contract'
-      WHEN status = 'won' THEN 'closed'
-      WHEN status = 'lost' THEN 'lost'
-      ELSE 'lead'
-    END;
-    ALTER TABLE operations ALTER COLUMN stage SET DEFAULT 'lead';
-    ALTER TABLE operations ALTER COLUMN stage SET NOT NULL;
-    ALTER TABLE operations DROP CONSTRAINT IF EXISTS operations_stage_check;
-    ALTER TABLE operations ADD CONSTRAINT operations_stage_check
-      CHECK (stage IN ('lead', 'visit', 'offer', 'contract', 'closed', 'lost'));
-
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS value NUMERIC;
-    UPDATE operations SET value = coalesce(value, amount, 0);
-    ALTER TABLE operations ALTER COLUMN value SET DEFAULT 0;
-    ALTER TABLE operations ALTER COLUMN value SET NOT NULL;
-
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS notes TEXT;
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS agent_id UUID REFERENCES public.users(id);
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
-    ALTER TABLE operations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
-
-    CREATE INDEX IF NOT EXISTS operations_stage_idx ON operations(stage);
-    CREATE INDEX IF NOT EXISTS operations_agent_id_idx ON operations(agent_id);
-    CREATE INDEX IF NOT EXISTS operations_contact_id_idx ON operations(contact_id);
-    CREATE INDEX IF NOT EXISTS operations_property_id_idx ON operations(property_id);
-    CREATE INDEX IF NOT EXISTS operations_active_idx ON operations(active);
-  `)
-}
-
 const queryOperations = async (db: PoolClient, where: string, values: unknown[]) => {
   const { rows } = await db.query(
     `SELECT ${operationSelect}
@@ -140,14 +102,12 @@ const buildFilters = (filters: OperationFilters, user: AuthUser) => {
 }
 
 export const listOperations = async (db: PoolClient, filters: OperationFilters, user: AuthUser) => {
-  await ensureOperationsModuleSchema(db)
   const { where, values } = buildFilters(filters, user)
 
   return queryOperations(db, where, values)
 }
 
 export const getOperation = async (db: PoolClient, id: string, user: AuthUser) => {
-  await ensureOperationsModuleSchema(db)
   const values: unknown[] = [id]
   const agentClause = user.role === 'agent' ? 'AND o.agent_id = $2' : ''
 
@@ -161,7 +121,6 @@ export const getOperation = async (db: PoolClient, id: string, user: AuthUser) =
 }
 
 export const createOperation = async (db: PoolClient, data: OperationInput, user: AuthUser) => {
-  await ensureOperationsModuleSchema(db)
   const agentId = user.role === 'admin' ? data.agent_id ?? user.id : user.id
   const stage = data.stage ?? 'lead'
   const closedAt = stage === 'closed' || stage === 'lost' ? 'now()' : 'NULL'
@@ -189,7 +148,6 @@ export const updateOperation = async (
   data: Partial<OperationInput>,
   user: AuthUser
 ) => {
-  await ensureOperationsModuleSchema(db)
   const updates: string[] = []
   const values: unknown[] = [id]
 
@@ -234,7 +192,6 @@ export const updateOperation = async (
 }
 
 export const deleteOperation = async (db: PoolClient, id: string, user: AuthUser) => {
-  await ensureOperationsModuleSchema(db)
   const values: unknown[] = [id]
   const agentClause = user.role === 'agent' ? 'AND agent_id = $2' : ''
 

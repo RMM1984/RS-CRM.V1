@@ -43,39 +43,11 @@ const contactSelect = `
   updated_at
 `
 
-export const ensureContactsModuleSchema = async (db: PoolClient) => {
-  await db.query(`
-    ALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_type_check;
-    ALTER TABLE contacts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'activo';
-    ALTER TABLE contacts ADD COLUMN IF NOT EXISTS assigned_to UUID;
-    ALTER TABLE contacts ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
-    ALTER TABLE contacts ADD CONSTRAINT contacts_type_check
-      CHECK (type IN ('comprador', 'vendedor', 'inquilino', 'propietario', 'ambos'));
-
-    CREATE TABLE IF NOT EXISTS contact_interactions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-      type TEXT NOT NULL CHECK (type IN ('call', 'email', 'note', 'whatsapp', 'visit')),
-      content TEXT NOT NULL,
-      created_by UUID,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-
-    CREATE INDEX IF NOT EXISTS contacts_active_idx ON contacts(active);
-    CREATE INDEX IF NOT EXISTS contacts_type_idx ON contacts(type);
-    CREATE INDEX IF NOT EXISTS contacts_status_idx ON contacts(status);
-    CREATE INDEX IF NOT EXISTS contacts_assigned_to_idx ON contacts(assigned_to);
-    CREATE INDEX IF NOT EXISTS contact_interactions_contact_id_idx
-      ON contact_interactions(contact_id, created_at DESC);
-  `)
-}
-
 export const listContacts = async (
   db: PoolClient,
   filters: ContactFilters,
   user: AuthUser
 ) => {
-  await ensureContactsModuleSchema(db)
 
   const clauses = ['active = true']
   const values: unknown[] = []
@@ -126,7 +98,6 @@ export const listContacts = async (
 }
 
 export const getContact = async (db: PoolClient, id: string, user: AuthUser) => {
-  await ensureContactsModuleSchema(db)
 
   const values: unknown[] = [id]
   const agentClause = user.role === 'agent' ? 'AND assigned_to = $2' : ''
@@ -157,7 +128,6 @@ export const createContact = async (
   data: ContactInput,
   user: AuthUser
 ) => {
-  await ensureContactsModuleSchema(db)
   const assignedTo = data.assigned_to ?? user.id
   const { rows } = await db.query(
     `INSERT INTO contacts (full_name, phone, email, type, source, status, notes, assigned_to, active)
@@ -184,7 +154,6 @@ export const updateContact = async (
   data: ContactUpdateInput,
   user: AuthUser
 ) => {
-  await ensureContactsModuleSchema(db)
   const updates: string[] = []
   const values: unknown[] = [id]
 
@@ -225,7 +194,6 @@ export const updateContact = async (
 }
 
 export const deleteContact = async (db: PoolClient, id: string, user: AuthUser) => {
-  await ensureContactsModuleSchema(db)
   const values: unknown[] = [id]
   const agentClause = user.role === 'agent' ? 'AND assigned_to = $2' : ''
 
@@ -250,7 +218,6 @@ export const addInteraction = async (
   data: InteractionInput,
   user: AuthUser
 ) => {
-  await ensureContactsModuleSchema(db)
   const contact = await getContact(db, contactId, user)
 
   if (!contact) {
@@ -273,7 +240,6 @@ export const listInteractions = async (
   user: AuthUser,
   limit?: number
 ) => {
-  await ensureContactsModuleSchema(db)
   const values: unknown[] = [contactId]
   const agentClause = user.role === 'agent' ? 'AND c.assigned_to = $2' : ''
 
