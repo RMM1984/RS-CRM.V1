@@ -633,7 +633,7 @@ export const searchProperties = async (db: PoolClient, query: string, overrides?
 
   if (keywords.rooms_exact != null) {
     values.push(keywords.rooms_exact)
-    clauses.push(`(bedrooms = $${values.length} OR bedrooms IS NULL)`)
+    clauses.push(`bedrooms = $${values.length}`)
   }
 
   if (keywords.rooms_min != null) {
