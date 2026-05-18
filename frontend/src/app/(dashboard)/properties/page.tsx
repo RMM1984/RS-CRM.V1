@@ -10,6 +10,7 @@ import {
   Grid2X2,
   Home,
   List,
+  Loader2,
   Pencil,
   Plus,
   Save,
@@ -18,7 +19,7 @@ import {
   X
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
@@ -259,12 +260,16 @@ export default function PropertiesPage() {
   })
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [query, setQuery] = useState('')
+  const abortControllerRef = useRef<AbortController | null>(null)
   const [searchResult, setSearchResult] = useState<{
     keywords: string[]
     parsed: SearchKeywords
     internal: Property[]
     external: ExternalProperty[]
   } | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [hasSearched, setHasSearched] = useState(false)
   const [propertyModal, setPropertyModal] = useState<Property | null>(null)
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
@@ -282,6 +287,7 @@ export default function PropertiesPage() {
   const propertySearch = usePropertySearch(query)
   const egoProperties = useEgoProperties(searchResult?.parsed ?? null)
   const searchProperties = propertySearch.mutateAsync
+  const resetPropertySearch = propertySearch.reset
   const createProperty = useCreateProperty()
   const updateProperty = useUpdateProperty()
   const deleteProperty = useDeleteProperty()
@@ -389,28 +395,72 @@ export default function PropertiesPage() {
     }
   }, [isPropertyModalOpen, propertyForm, propertyModal])
 
+  const handleClear = useCallback(() => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    resetPropertySearch()
+    setQuery('')
+    setSearchResult(null)
+    setSearchLoading(false)
+    setSearchError(null)
+    setHasSearched(false)
+  }, [resetPropertySearch])
+
   const runSearch = useCallback(async (searchQuery: string) => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+
     if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      resetPropertySearch()
       setSearchResult(null)
+      setSearchLoading(false)
+      setSearchError(null)
+      setHasSearched(false)
       return
     }
 
-    const result = await searchProperties({
-      query: searchQuery,
-      type: filters.type && filters.type !== 'all' ? typeFilterToCanonical[filters.type] ?? filters.type : null
-    })
-    const chips = [
-      result.keywords.type,
-      result.keywords.rooms_min ? `${result.keywords.rooms_min} hab` : null,
-      result.keywords.city,
-      result.keywords.price_max ? `max. ${new Intl.NumberFormat('es-ES').format(result.keywords.price_max)}` : null,
-      filters.type && filters.type !== 'all' ? filterTypeLabels[filters.type] ?? filters.type : null,
-      filters.operation && filters.operation !== 'all' ? filterOperationLabels[filters.operation] ?? filters.operation : null,
-      ...result.keywords.features.slice(0, 4)
-    ].filter(Boolean) as string[]
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    setSearchLoading(true)
+    setSearchError(null)
+    setHasSearched(true)
 
-    setSearchResult({ keywords: chips, parsed: result.keywords, internal: result.internal, external: result.external })
-  }, [filters.operation, filters.type, searchProperties])
+    try {
+      const result = await searchProperties({
+        query: searchQuery,
+        signal: controller.signal,
+        type: filters.type && filters.type !== 'all' ? typeFilterToCanonical[filters.type] ?? filters.type : null
+      })
+
+      if (abortControllerRef.current !== controller) return
+
+      const chips = [
+        result.keywords.type,
+        result.keywords.rooms_min ? `${result.keywords.rooms_min} hab` : null,
+        result.keywords.city,
+        result.keywords.price_max ? `max. ${new Intl.NumberFormat('es-ES').format(result.keywords.price_max)}` : null,
+        filters.type && filters.type !== 'all' ? filterTypeLabels[filters.type] ?? filters.type : null,
+        filters.operation && filters.operation !== 'all' ? filterOperationLabels[filters.operation] ?? filters.operation : null,
+        ...result.keywords.features.slice(0, 4)
+      ].filter(Boolean) as string[]
+
+      setSearchResult({ keywords: chips, parsed: result.keywords, internal: result.internal, external: result.external })
+    } catch (error) {
+      if (
+        controller.signal.aborted ||
+        (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError'))
+      ) {
+        return
+      }
+
+      setSearchError('Error en la busqueda')
+    } finally {
+      if (abortControllerRef.current === controller) {
+        setSearchLoading(false)
+        abortControllerRef.current = null
+      }
+    }
+  }, [filters.operation, filters.type, resetPropertySearch, searchProperties])
 
   const onSearch = async () => {
     await runSearch(buildSearchQuery())
@@ -423,7 +473,13 @@ export default function PropertiesPage() {
       filters.source !== 'all'
 
     if (!query.trim() && !searchableFilterActive) {
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+      resetPropertySearch()
       setSearchResult(null)
+      setSearchLoading(false)
+      setSearchError(null)
+      setHasSearched(false)
       return
     }
 
@@ -432,7 +488,7 @@ export default function PropertiesPage() {
     }, 250)
 
     return () => window.clearTimeout(timer)
-  }, [buildSearchQuery, filters.operation, filters.source, filters.type, query, runSearch])
+  }, [buildSearchQuery, filters.operation, filters.source, filters.type, query, resetPropertySearch, runSearch])
 
   const onSaveProperty = async (values: PropertyForm) => {
     const payload = normalizeProperty(values)
@@ -553,16 +609,23 @@ export default function PropertiesPage() {
             />
           </div>
           <div className="flex gap-2">
-            <Button disabled={propertySearch.isPending} onClick={() => void onSearch()}>
-              Buscar
+            <Button onClick={() => void onSearch()}>
+              {searchLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {searchLoading ? 'Buscando...' : 'Buscar'}
             </Button>
-            {searchResult ? (
-              <Button onClick={() => setSearchResult(null)} variant="outline">
+            {searchResult || query || searchLoading || searchError ? (
+              <Button onClick={handleClear} variant="outline">
                 Limpiar
               </Button>
             ) : null}
           </div>
         </div>
+
+        {hasSearched && searchError ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {searchError}
+          </div>
+        ) : null}
 
         {searchResult ? (
           <div className="flex flex-wrap gap-2">

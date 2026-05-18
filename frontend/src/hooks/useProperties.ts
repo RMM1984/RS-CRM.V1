@@ -83,12 +83,14 @@ export const useProperty = (id?: string | null) =>
 
 export const usePropertySearch = (query: string) =>
   useMutation({
-    mutationFn: async (payload?: string | { query?: string; type?: string | null }) => {
+    mutationFn: async (payload?: string | { query?: string; type?: string | null; signal?: AbortSignal }) => {
       const body = typeof payload === 'string'
         ? { query: payload }
         : { query: payload?.query ?? query, type: payload?.type }
       const response = await api.post<SuccessResponse<PropertySearchResult>>('/api/properties/search', {
         ...body
+      }, {
+        signal: typeof payload === 'string' ? undefined : payload?.signal
       })
 
       return unwrap(response.data)
