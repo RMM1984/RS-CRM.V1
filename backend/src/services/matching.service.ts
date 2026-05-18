@@ -108,7 +108,7 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
       const warnings: string[] = []
       const budgetMax = toNumber(contact.budget_max)
 
-      if (budgetMax !== null && price > budgetMax * 1.1) {
+      if (budgetMax !== null && price > budgetMax * 1.2) {
         return null
       }
 
@@ -118,16 +118,16 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
 
       switch (contact.client_profile) {
         case 'luxury_premium':
-          if (price < 800000) return null
+          if (price < 500000) return null
           break
         case 'luxury_standard':
-          if (price < 400000) return null
+          if (price < 200000) return null
           break
         case 'first_home':
-          if (price > 450000) return null
+          if (price > 500000) return null
           break
         case 'investor_flip':
-          if (price > 500000) return null
+          if (price > 600000) return null
           break
       }
 
@@ -141,9 +141,12 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
         } else if (price <= budgetMax) {
           score += 20
           reasons.push('Dentro de presupuesto')
-        } else {
+        } else if (price <= budgetMax * 1.1) {
           score += 10
           warnings.push(`Hasta un 10% sobre presupuesto (${Math.round(((price - budgetMax) / budgetMax) * 100)}%)`)
+        } else {
+          score += 5
+          warnings.push(`Hasta un 20% sobre presupuesto (${Math.round(((price - budgetMax) / budgetMax) * 100)}%)`)
         }
       }
 
@@ -223,7 +226,7 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
         match_reasons: reasons
       }
     })
-    .filter((match): match is ContactMatch => match !== null && match.score >= 25)
+    .filter((match): match is ContactMatch => match !== null && match.score >= 15)
     .sort((a, b) => b.score - a.score)
     .slice(0, 4)
 }
@@ -256,5 +259,11 @@ export const getPropertyMatches = async (db: PoolClient, property: MatchProperty
      WHERE active = true AND client_profile IS NOT NULL`
   )
 
-  return matchContactsToProperty(property, rows)
+  const matches = matchContactsToProperty(property, rows)
+
+  console.log('[Matching] Property price:', property.price)
+  console.log('[Matching] Contacts found:', rows.length)
+  console.log('[Matching] Matches calculated:', matches.length)
+
+  return matches
 }

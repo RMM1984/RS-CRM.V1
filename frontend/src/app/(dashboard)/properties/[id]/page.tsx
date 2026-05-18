@@ -335,7 +335,12 @@ export default function PropertyDetailPage() {
                 </p>
               </div>
               {matchesQuery.isLoading ? <div className="h-28 animate-pulse rounded-md bg-muted" /> : null}
-              {((!matchesQuery.isLoading && (matchesQuery.isError || !matchesQuery.data?.length)) || isExternalProperty(property)) ? (
+              {(!matchesQuery.isLoading && matchesQuery.isError && !isExternalProperty(property)) ? (
+                <p className="rounded-md border p-4 text-sm text-muted-foreground">
+                  No se pudieron cargar sugerencias.
+                </p>
+              ) : null}
+              {((!matchesQuery.isLoading && !matchesQuery.isError && !matchesQuery.data?.length) || isExternalProperty(property)) ? (
                 <p className="rounded-md border p-4 text-sm text-muted-foreground">
                   Sin coincidencias por ahora. Completa los perfiles de tus contactos.
                 </p>

@@ -167,6 +167,10 @@ const iconValue = ($: CheerioAPI, card: cheerio.Cheerio<AnyNode>, iconTitle: str
   return parseNumber(icon.closest('.property-15__featuredicon').text())
 }
 
+const sanitizeRooms = (value: number | null) => (value !== null && value > 0 && value <= 20 ? value : null)
+
+const sanitizeBathrooms = (value: number | null) => (value !== null && value > 0 && value <= 15 ? value : null)
+
 const refFromUrl = (url: string) => url.match(/(\d+)\/?$/)?.[1] ?? ''
 
 const splitWords = (text: string) => text.split(/\s+/).filter(Boolean)
@@ -229,8 +233,8 @@ const mapCard = ($: CheerioAPI, element: AnyNode): ExternalProperty | null => {
     zone,
     city: 'Jávea',
     surface_m2: iconValue($, card, 'Build size'),
-    rooms: iconValue($, card, 'Bedrooms'),
-    bathrooms: iconValue($, card, 'Bathrooms'),
+    rooms: sanitizeRooms(iconValue($, card, 'Bedrooms')),
+    bathrooms: sanitizeBathrooms(iconValue($, card, 'Bathrooms')),
     image_url: imageUrl,
     images: imageUrl ? [{ url: imageUrl }] : [],
     source_url: sourceUrl,
