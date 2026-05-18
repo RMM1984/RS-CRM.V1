@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
-import { Pool } from 'pg'
+import { Pool, type PoolClient } from 'pg'
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
@@ -9,12 +9,26 @@ const USER_AGENT =
 type PropertyRow = {
   id: string
   title: string
+  source: string
   source_url: string
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const absoluteUrl = (url: string, sourceUrl: string) => new URL(url, sourceUrl).toString()
+
+const collectImageUrl = (rawUrl: string, sourceUrl: string, seen: Set<string>, images: string[]) => {
+  const trimmed = rawUrl.trim()
+  if (!trimmed) return
+
+  const candidate = trimmed.split(/\s+/)[0]
+  const url = absoluteUrl(candidate, sourceUrl)
+  if (!url.includes('app-api.paagees.com') || !url.toLowerCase().includes('.webp')) return
+  if (seen.has(url)) return
+
+  seen.add(url)
+  images.push(url)
+}
 
 const fetchImages = async (sourceUrl: string) => {
   const { data } = await axios.get<string>(sourceUrl, {
@@ -25,19 +39,79 @@ const fetchImages = async (sourceUrl: string) => {
   const seen = new Set<string>()
   const images: string[] = []
 
-  $('img').each((_, element) => {
-    const src = $(element).attr('src') || $(element).attr('data-src') || $(element).attr('data-lazy-src')
-    if (!src) return
+  $('img, source').each((_, element) => {
+    const attrs = ['src', 'data-src', 'data-lazy-src', 'data-original']
 
-    const url = absoluteUrl(src, sourceUrl)
-    if (!url.includes('app-api.paagees.com') || !url.toLowerCase().includes('.webp')) return
-    if (seen.has(url)) return
+    for (const attr of attrs) {
+      const value = $(element).attr(attr)
+      if (value) collectImageUrl(value, sourceUrl, seen, images)
+    }
 
-    seen.add(url)
-    images.push(url)
+    const srcset = $(element).attr('srcset') || $(element).attr('data-srcset')
+    if (srcset) {
+      for (const candidate of srcset.split(',')) {
+        collectImageUrl(candidate, sourceUrl, seen, images)
+      }
+    }
   })
 
+  for (const match of data.matchAll(/https?:\/\/[^"'\s)]+app-api\.paagees\.com[^"'\s)]+?\.webp/gi)) {
+    collectImageUrl(match[0], sourceUrl, seen, images)
+  }
+
   return images.slice(0, 10)
+}
+
+const isReachableImage = async (url: string) => {
+  try {
+    const response = await axios.head(url, {
+      headers: { 'User-Agent': USER_AGENT },
+      timeout: 10000,
+      validateStatus: () => true
+    })
+
+    const contentType = String(response.headers['content-type'] ?? '')
+    return response.status >= 200 && response.status < 300 && contentType.startsWith('image/')
+  } catch {
+    return false
+  }
+}
+
+const hasReachableStoredImage = async (client: PoolClient, propertyId: string) => {
+  const existingImages = await client.query<{ url: string }>(
+    `SELECT url
+     FROM tenant_rs_crm.property_images
+     WHERE property_id = $1
+     ORDER BY position ASC NULLS LAST, created_at ASC
+     LIMIT 3`,
+    [propertyId]
+  )
+
+  for (const image of existingImages.rows) {
+    if (await isReachableImage(image.url)) return true
+  }
+
+  return false
+}
+
+const archiveStaleCollaboration = async (
+  client: PoolClient,
+  property: PropertyRow,
+  reason: string
+) => {
+  if (property.source !== 'colaboracion') return false
+
+  await client.query(
+    `UPDATE tenant_rs_crm.properties
+     SET active = false,
+         status = 'archived',
+         updated_at = now()
+     WHERE id = $1`,
+    [property.id]
+  )
+
+  console.log(`WARN ${property.title}: ${reason}; colaboracion archivada`)
+  return true
 }
 
 const main = async () => {
@@ -65,7 +139,7 @@ const main = async () => {
     }
 
     const { rows: properties } = await client.query<PropertyRow>(
-      `SELECT id, title, source_url
+      `SELECT id, title, source, source_url
        FROM tenant_rs_crm.properties
        WHERE source IN ('internal', 'colaboracion')
        AND source_url IS NOT NULL
@@ -79,6 +153,11 @@ const main = async () => {
         const images = await fetchImages(property.source_url)
 
         if (!images.length) {
+          const hasValidStoredImage = await hasReachableStoredImage(client, property.id)
+          if (!hasValidStoredImage) {
+            await archiveStaleCollaboration(client, property, 'sin imagenes validas')
+          }
+
           console.log(`WARN ${property.title}: no se encontraron imagenes`)
           await sleep(1000)
           continue
@@ -128,6 +207,10 @@ const main = async () => {
         console.log(`OK ${property.title}: ${images.length} imagenes actualizadas`)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Error desconocido'
+        const hasValidStoredImage = await hasReachableStoredImage(client, property.id)
+        if (!hasValidStoredImage) {
+          await archiveStaleCollaboration(client, property, `anuncio no disponible (${message})`)
+        }
         console.log(`WARN ${property.title}: ${message}`)
       }
 
