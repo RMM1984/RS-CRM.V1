@@ -25,8 +25,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { JAVEA_MARKET_STATS } from '@/data/marketStats'
 import { useContacts } from '@/hooks/useContacts'
+import { getTopMatchesForProperty } from '@/hooks/useInlineMatching'
 import { useCreateOperation } from '@/hooks/useOperations'
-import { useProperty, usePropertyMatches, useSaveToShortlist } from '@/hooks/useProperties'
+import { useProperty, useSaveToShortlist } from '@/hooks/useProperties'
 import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
 import type { ExternalProperty, Property } from '@/types/properties'
@@ -153,8 +154,7 @@ export default function PropertyDetailPage() {
   }, [params.id])
 
   const propertyQuery = useProperty(hasCheckedSession && !externalProperty ? params.id : null)
-  const matchesQuery = usePropertyMatches(hasCheckedSession && !externalProperty ? params.id : null)
-  const contactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', search: '' })
+  const contactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', has_profile: true, search: '' })
   const saveToShortlist = useSaveToShortlist()
   const createOperation = useCreateOperation()
 
@@ -167,12 +167,10 @@ export default function PropertyDetailPage() {
   const analysis = pricePerM2 ? priceAnalysis(pricePerM2) : null
   const selectedContact = contactsQuery.data?.contacts.find((contact) => contact.id === contactId)
   const agencyPhone = property?.source_agency_phone || '+34 965 791 091'
-
-  useEffect(() => {
-    if (matchesQuery.data) {
-      console.log('Matches response:', matchesQuery.data)
-    }
-  }, [matchesQuery.data])
+  const localMatches = useMemo(
+    () => (property ? getTopMatchesForProperty(property, contactsQuery.data?.contacts ?? []) : []),
+    [contactsQuery.data?.contacts, property]
+  )
 
   const featureCards = useMemo(() => {
     if (!property) return []
@@ -334,18 +332,13 @@ export default function PropertyDetailPage() {
                   Top 4 calculado con presupuesto, zonas y necesidades del perfil comprador.
                 </p>
               </div>
-              {matchesQuery.isLoading ? <div className="h-28 animate-pulse rounded-md bg-muted" /> : null}
-              {(!matchesQuery.isLoading && matchesQuery.isError && !isExternalProperty(property)) ? (
-                <p className="rounded-md border p-4 text-sm text-muted-foreground">
-                  No se pudieron cargar sugerencias.
-                </p>
-              ) : null}
-              {((!matchesQuery.isLoading && !matchesQuery.isError && !matchesQuery.data?.length) || isExternalProperty(property)) ? (
+              {contactsQuery.isLoading ? <div className="h-28 animate-pulse rounded-md bg-muted" /> : null}
+              {!contactsQuery.isLoading && !localMatches.length ? (
                 <p className="rounded-md border p-4 text-sm text-muted-foreground">
                   Sin coincidencias por ahora. Completa los perfiles de tus contactos.
                 </p>
               ) : null}
-              {!isExternalProperty(property) && matchesQuery.data?.map((match) => (
+              {localMatches.map((match) => (
                 <div className="rounded-md border p-4" key={match.contact.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -360,7 +353,7 @@ export default function PropertyDetailPage() {
                       <div>
                         <h3 className="font-semibold">{match.contact.name}</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          {profileLabels[match.contact.client_profile] ?? match.contact.client_profile}
+                          {match.contact.client_profile ? profileLabels[match.contact.client_profile] ?? match.contact.client_profile : 'Sin perfil'}
                         </p>
                         {match.contact.budget_max ? (
                           <p className="mt-1 text-sm text-muted-foreground">
@@ -374,9 +367,6 @@ export default function PropertyDetailPage() {
                   <div className="mt-3 grid gap-1 text-sm text-slate-700">
                     {match.reasons.slice(0, 4).map((reason) => (
                       <span key={reason}>✅ {reason}</span>
-                    ))}
-                    {(match.warnings ?? []).slice(0, 2).map((warning) => (
-                      <span className="text-amber-700" key={warning}>⚠️ {warning}</span>
                     ))}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -393,7 +383,7 @@ export default function PropertyDetailPage() {
                       onClick={async () => {
                         await createOperation.mutateAsync({
                           contact_id: match.contact.id,
-                          property_id: property.id,
+                          property_id: isExternalProperty(property) ? null : property.id,
                           type: property.operation === 'rent' ? 'rent' : 'sale',
                           stage: 'lead',
                           value: price,
