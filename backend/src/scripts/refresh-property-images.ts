@@ -51,14 +51,26 @@ const main = async () => {
   const client = await pool.connect()
 
   try {
-    await client.query('ALTER TABLE tenant_rs_crm.property_images ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0')
+    const positionColumn = await client.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'tenant_rs_crm'
+       AND table_name = 'property_images'
+       AND column_name = 'position'
+       LIMIT 1`
+    )
+
+    if (!positionColumn.rowCount) {
+      await client.query('ALTER TABLE tenant_rs_crm.property_images ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0')
+    }
 
     const { rows: properties } = await client.query<PropertyRow>(
       `SELECT id, title, source_url
        FROM tenant_rs_crm.properties
-       WHERE active = true
+       WHERE source IN ('internal', 'colaboracion')
        AND source_url IS NOT NULL
        AND btrim(source_url) <> ''
+       AND deleted_at IS NULL
        ORDER BY created_at DESC`
     )
 
