@@ -187,4 +187,5 @@ export type PropertyContactMatch = {
   score: number
   percentage: number
   reasons: string[]
+  warnings?: string[]
 }

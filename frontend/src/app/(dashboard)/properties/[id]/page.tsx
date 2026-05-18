@@ -9,7 +9,6 @@ import {
   Home,
   Leaf,
   LineChart,
-  MessageCircle,
   Phone,
   Ruler,
   Save,
@@ -169,6 +168,12 @@ export default function PropertyDetailPage() {
   const selectedContact = contactsQuery.data?.contacts.find((contact) => contact.id === contactId)
   const agencyPhone = property?.source_agency_phone || '+34 965 791 091'
 
+  useEffect(() => {
+    if (matchesQuery.data) {
+      console.log('Matches response:', matchesQuery.data)
+    }
+  }, [matchesQuery.data])
+
   const featureCards = useMemo(() => {
     if (!property) return []
 
@@ -319,40 +324,54 @@ export default function PropertyDetailPage() {
             </p>
           </Card>
 
-          {!isExternalProperty(property) ? (
-            <Card className="grid gap-4 p-5">
+          <Card className="grid gap-4 p-5">
               <div>
                 <h2 className="flex items-center gap-2 font-semibold">
                   <UserRound className="h-5 w-5 text-primary" />
-                  Clientes que podrían estar interesados
+                  Clientes que pueden estar interesados
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Top 5 calculado con presupuesto, zonas y necesidades del perfil comprador.
+                  Top 4 calculado con presupuesto, zonas y necesidades del perfil comprador.
                 </p>
               </div>
               {matchesQuery.isLoading ? <div className="h-28 animate-pulse rounded-md bg-muted" /> : null}
-              {!matchesQuery.isLoading && !matchesQuery.data?.length ? (
+              {((!matchesQuery.isLoading && (matchesQuery.isError || !matchesQuery.data?.length)) || isExternalProperty(property)) ? (
                 <p className="rounded-md border p-4 text-sm text-muted-foreground">
-                  Añade perfiles a tus contactos para ver sugerencias aquí.
+                  Sin coincidencias por ahora. Completa los perfiles de tus contactos.
                 </p>
               ) : null}
-              {matchesQuery.data?.map((match, index) => (
+              {!isExternalProperty(property) && matchesQuery.data?.map((match) => (
                 <div className="rounded-md border p-4" key={match.contact.id}>
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold">
-                        {index + 1}. {match.contact.name}
-                      </h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {profileLabels[match.contact.client_profile] ?? match.contact.client_profile}
-                        {match.contact.budget_max ? ` - hasta ${formatPropertyPrice(match.contact.budget_max, 'sale')}` : ''}
-                      </p>
+                    <div className="flex items-start gap-3">
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                        {match.contact.name
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((part) => part[0]?.toUpperCase())
+                          .join('')}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{match.contact.name}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {profileLabels[match.contact.client_profile] ?? match.contact.client_profile}
+                        </p>
+                        {match.contact.budget_max ? (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Presupuesto: hasta {formatPropertyPrice(match.contact.budget_max, 'sale')}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                     <Badge className="bg-emerald-100 text-emerald-800">{match.percentage}%</Badge>
                   </div>
                   <div className="mt-3 grid gap-1 text-sm text-slate-700">
                     {match.reasons.slice(0, 4).map((reason) => (
-                      <span key={reason}>✓ {reason}</span>
+                      <span key={reason}>✅ {reason}</span>
+                    ))}
+                    {(match.warnings ?? []).slice(0, 2).map((warning) => (
+                      <span className="text-amber-700" key={warning}>⚠️ {warning}</span>
                     ))}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -361,14 +380,6 @@ export default function PropertyDetailPage() {
                         <a href={`tel:${match.contact.phone.replace(/\s/g, '')}`}>
                           <Phone className="mr-2 h-4 w-4" />
                           Llamar
-                        </a>
-                      </Button>
-                    ) : null}
-                    {match.contact.phone ? (
-                      <Button asChild size="sm" variant="outline">
-                        <a href={`https://wa.me/${match.contact.phone.replace(/[^\d]/g, '')}`} rel="noreferrer" target="_blank">
-                          <MessageCircle className="mr-2 h-4 w-4" />
-                          WhatsApp
                         </a>
                       </Button>
                     ) : null}
@@ -387,13 +398,12 @@ export default function PropertyDetailPage() {
                       }}
                       size="sm"
                     >
-                      + Op.
+                      + Nueva operación
                     </Button>
                   </div>
                 </div>
               ))}
-            </Card>
-          ) : null}
+          </Card>
         </div>
 
         <aside className="grid h-fit gap-4">

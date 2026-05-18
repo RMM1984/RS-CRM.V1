@@ -43,6 +43,7 @@ type ContactMatch = {
   score: number
   percentage: number
   reasons: string[]
+  warnings: string[]
   match_reasons: string[]
 }
 
@@ -86,95 +87,139 @@ const preferredZoneMatch = (contact: MatchContact, propertyText: string) => {
   return match ?? null
 }
 
+const propertyTypeMatches = (property: MatchProperty, candidates: string[]) => {
+  const type = normalizeText(property.type ?? '')
+  const text = propertySearchText(property)
+
+  return candidates.some((candidate) => type === candidate || text.includes(candidate))
+}
+
+const featureMatches = (text: string, terms: string[]) => includesAny(text, terms)
+
 export const matchContactsToProperty = (property: MatchProperty, contacts: MatchContact[]): ContactMatch[] => {
   const price = toNumber(property.price) ?? 0
-  const surface = toNumber(property.surface_m2)
-  const pricePerM2 = price && surface ? Math.round(price / surface) : null
   const text = propertySearchText(property)
 
   return contacts
     .map((contact) => {
       let score = 0
       const reasons: string[] = []
+      const warnings: string[] = []
       const budgetMax = toNumber(contact.budget_max)
-      if (budgetMax !== null && price <= budgetMax) {
-        score += 30
-        reasons.push('Dentro de presupuesto')
-      } else if (budgetMax !== null && price > budgetMax) {
-        score -= 40
+
+      if (budgetMax !== null && price > budgetMax * 1.1) {
+        return null
       }
 
-      if (contact.rooms_min && property.rooms !== null && property.rooms !== undefined && property.rooms >= contact.rooms_min) {
-        score += 15
-        reasons.push('Habitaciones suficientes')
-      }
-
-      if (contact.needs_pool && includesAny(text, ['piscina', 'pool', 'swimming', 'zwembad', 'schwimmbad'])) {
-        score += 15
-        reasons.push('Tiene piscina')
-      }
-
-      if (contact.needs_sea_view && includesAny(text, ['mar', 'sea', 'meer', 'zee', 'mer', 'vista', 'view'])) {
-        score += 15
-        reasons.push('Vistas al mar')
-      }
-
-      if (contact.needs_garden && includesAny(text, ['jardin', 'garden', 'garten', 'tuin', 'terraza', 'terrace'])) {
-        score += 10
-        reasons.push('Tiene jardin')
-      }
-
-      if (contact.needs_parking && includesAny(text, ['parking', 'garaje', 'garage', 'plaza'])) {
-        score += 10
-        reasons.push('Tiene parking')
-      }
-
-      if (contact.needs_renovation && includesAny(text, ['reformar', 'renovar', 'renovation', 'needs work', 'para reformar'])) {
-        score += 20
-        reasons.push('Necesita reforma')
+      if (contact.rooms_min && property.rooms !== null && property.rooms !== undefined && property.rooms < contact.rooms_min) {
+        return null
       }
 
       switch (contact.client_profile) {
         case 'luxury_premium':
-          if (price > 1500000) score += 25
+          if (price < 800000) return null
           break
         case 'luxury_standard':
-          if (price >= 600000 && price <= 1500000) score += 20
+          if (price < 400000) return null
           break
-        case 'investor_yield':
-          if (pricePerM2 && pricePerM2 < 3000) score += 15
+        case 'first_home':
+          if (price > 450000) return null
           break
         case 'investor_flip':
-          if (includesAny(text, ['reforma', 'renovar', 'renovation', 'needs work', 'para reformar'])) score += 20
+          if (price > 500000) return null
+          break
+      }
+
+      if (budgetMax !== null) {
+        if (price <= budgetMax * 0.8) {
+          score += 40
+          reasons.push('Dentro de presupuesto')
+        } else if (price <= budgetMax * 0.9) {
+          score += 30
+          reasons.push('Dentro de presupuesto')
+        } else if (price <= budgetMax) {
+          score += 20
+          reasons.push('Dentro de presupuesto')
+        } else {
+          score += 10
+          warnings.push(`Hasta un 10% sobre presupuesto (${Math.round(((price - budgetMax) / budgetMax) * 100)}%)`)
+        }
+      }
+
+      if (contact.rooms_min && property.rooms !== null && property.rooms !== undefined && property.rooms >= contact.rooms_min) {
+        reasons.push('Habitaciones suficientes')
+      } else if (contact.rooms_min && (property.rooms === null || property.rooms === undefined)) {
+        warnings.push(`Busca mínimo ${contact.rooms_min} hab (sin dato)`)
+      }
+
+      if (contact.needs_pool && featureMatches(text, ['piscina', 'pool', 'swimming', 'zwembad', 'schwimmbad'])) {
+        score += 10
+        reasons.push('Piscina requerida')
+      }
+
+      if (contact.needs_sea_view && featureMatches(text, ['mar', 'sea', 'meer', 'zee', 'mer', 'vista', 'view'])) {
+        score += 10
+        reasons.push('Vistas al mar requeridas')
+      }
+
+      if (contact.needs_garden && featureMatches(text, ['jardin', 'garden', 'garten', 'tuin', 'terraza', 'terrace'])) {
+        score += 10
+        reasons.push('Jardín requerido')
+      }
+
+      if (contact.needs_parking && featureMatches(text, ['parking', 'garaje', 'garage', 'plaza'])) {
+        score += 10
+        reasons.push('Parking requerido')
+      }
+
+      switch (contact.client_profile) {
+        case 'luxury_premium':
+          if (propertyTypeMatches(property, ['villa', 'chalet', 'finca'])) score += 15
+          break
+        case 'luxury_standard':
+          if (propertyTypeMatches(property, ['villa', 'chalet', 'finca'])) score += 15
+          break
+        case 'investor_yield':
+          if (propertyTypeMatches(property, ['apartment', 'apartamento', 'piso'])) score += 15
+          break
+        case 'investor_flip':
+          if (featureMatches(text, ['reforma', 'reformar', 'renovar', 'renovation', 'needs work', 'para reformar'])) {
+            score += 10
+            reasons.push('Potencial de reforma')
+          }
           break
         case 'foreign':
           score += 10
           break
         case 'second_home':
-          if (property.type === 'apartment') score += 10
+          if (propertyTypeMatches(property, ['apartment', 'apartamento', 'piso'])) score += 15
           break
         case 'first_home':
-          if (price <= 350000) score += 15
+          if (propertyTypeMatches(property, ['apartment', 'apartamento', 'piso'])) score += 15
+          break
+        case 'digital_nomad':
+          if (propertyTypeMatches(property, ['house', 'villa', 'chalet', 'casa'])) score += 10
           break
       }
 
       const zone = preferredZoneMatch(contact, text)
       if (zone) {
-        score += 20
-        reasons.push(`Zona preferida: ${zone}`)
+        score += 25
+        reasons.push(`Zona ${zone} (preferida)`)
       }
 
       return {
         contact,
         score,
-        percentage: Math.min(100, Math.round(score / 80 * 100)),
+        percentage: Math.min(99, Math.round(score)),
         reasons,
+        warnings,
         match_reasons: reasons
       }
     })
-    .filter((match) => match.score > 15)
+    .filter((match): match is ContactMatch => match !== null && match.score >= 25)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
+    .slice(0, 4)
 }
 
 export const getPropertyMatches = async (db: PoolClient, property: MatchProperty) => {
