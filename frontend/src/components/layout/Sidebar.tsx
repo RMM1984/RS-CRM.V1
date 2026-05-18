@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Building2, CalendarDays, Home, LogOut, Users, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
+import { useVisits } from '@/hooks/useVisits'
 import { cn } from '@/lib/utils'
 
 const links = [
@@ -18,6 +19,17 @@ const links = [
 export const Sidebar = () => {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const todayVisits = useVisits({
+    from: today.toISOString(),
+    to: tomorrow.toISOString(),
+    status: 'scheduled',
+    page: 1,
+    limit: 20
+  })
 
   return (
     <aside className="flex min-h-screen w-72 flex-col border-r bg-card px-4 py-5">
@@ -46,7 +58,12 @@ export const Sidebar = () => {
               key={link.href}
             >
               <Icon className="h-4 w-4" />
-              {link.label}
+              <span className="flex-1">{link.label}</span>
+              {link.href === '/visits' && todayVisits.data?.total ? (
+                <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
+                  {todayVisits.data.total}
+                </span>
+              ) : null}
             </Link>
           )
         })}

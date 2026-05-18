@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'agent' CHECK (role IN ('admin', 'agent')),
+  calendar_token TEXT UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ

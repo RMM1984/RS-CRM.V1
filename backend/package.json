@@ -16,6 +16,7 @@
     "seed:users": "ts-node src/scripts/seed-users.ts",
     "seed:profiles": "ts-node src/scripts/seed-profiles.ts",
     "seed:operations": "ts-node src/scripts/seed-operations.ts",
+    "seed:visits": "ts-node src/scripts/seed-visits.ts",
     "refresh:images": "ts-node src/scripts/refresh-property-images.ts"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "ics": "^3.12.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",

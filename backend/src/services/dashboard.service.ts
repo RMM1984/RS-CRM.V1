@@ -19,7 +19,8 @@ export const getDashboard = async (db: PoolClient) => {
           'visits_today', (
             SELECT count(*)::int
             FROM visits
-            WHERE starts_at::date = current_date
+            WHERE scheduled_at::date = current_date
+              AND status = 'scheduled'
           ),
           'closed_this_month', (
             SELECT count(*)::int
@@ -91,16 +92,17 @@ export const getDashboard = async (db: PoolClient) => {
         FROM (
           SELECT
             v.id,
-            v.starts_at AS scheduled_at,
+            v.scheduled_at AS scheduled_at,
             c.full_name AS contact_name,
             p.title AS property_title,
             u.full_name AS agent_name
           FROM visits v
-          JOIN contacts c ON c.id = v.contact_id
-          JOIN properties p ON p.id = v.property_id
+          LEFT JOIN contacts c ON c.id = v.contact_id
+          LEFT JOIN properties p ON p.id = v.property_id
           LEFT JOIN public.users u ON u.id = v.agent_id
-          WHERE v.starts_at >= now()
-          ORDER BY v.starts_at ASC
+          WHERE v.scheduled_at >= now()
+            AND v.status = 'scheduled'
+          ORDER BY v.scheduled_at ASC
           LIMIT 5
         ) item
       )

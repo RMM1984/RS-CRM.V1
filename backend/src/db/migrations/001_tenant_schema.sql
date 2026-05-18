@@ -109,12 +109,20 @@ CREATE TABLE IF NOT EXISTS operations (
 
 CREATE TABLE IF NOT EXISTS visits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-  starts_at TIMESTAMPTZ NOT NULL,
+  title TEXT,
+  scheduled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  duration_min INTEGER DEFAULT 60,
+  location TEXT,
+  contact_id UUID REFERENCES contacts(id) ON DELETE CASCADE,
+  property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+  operation_id UUID REFERENCES operations(id) ON DELETE SET NULL,
+  agent_id UUID REFERENCES public.users(id),
+  starts_at TIMESTAMPTZ,
   ends_at TIMESTAMPTZ,
-  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled', 'no_show')),
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'done', 'cancelled', 'no_show')),
   notes TEXT,
+  reminder_sent BOOLEAN DEFAULT false,
+  ical_uid TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -147,5 +155,7 @@ CREATE INDEX IF NOT EXISTS operations_stage_idx ON operations(stage);
 CREATE INDEX IF NOT EXISTS operations_agent_id_idx ON operations(agent_id);
 CREATE INDEX IF NOT EXISTS operations_active_idx ON operations(active);
 CREATE INDEX IF NOT EXISTS visits_starts_at_idx ON visits(starts_at);
+CREATE INDEX IF NOT EXISTS visits_scheduled_at_idx ON visits(scheduled_at);
+CREATE INDEX IF NOT EXISTS visits_agent_id_idx ON visits(agent_id);
 
 RESET search_path;

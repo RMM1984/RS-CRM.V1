@@ -14,7 +14,7 @@ import { operationsRoutes } from './routes/operations.routes'
 import { propertiesRoutes } from './routes/properties.routes'
 import { shortlistRoutes } from './routes/shortlist.routes'
 import { usersRoutes } from './routes/users.routes'
-import { visitsRoutes } from './routes/visits.routes'
+import { calendarRoutes, publicCalendarRoutes, visitsRoutes } from './routes/visits.routes'
 import { buildCache } from './services/scrapers/crownProperty.scraper'
 
 export const app = express()
@@ -53,6 +53,7 @@ app.get('/health/db', async (_req, res) => {
 })
 
 app.use('/api/auth', authRoutes)
+app.use('/api/calendar', publicCalendarRoutes)
 
 app.use('/api', verifyJWT, setSchema)
 app.use('/api/users', usersRoutes)
@@ -61,6 +62,7 @@ app.use('/api/properties', propertiesRoutes)
 app.use('/api/shortlist', shortlistRoutes)
 app.use('/api/operations', operationsRoutes)
 app.use('/api/visits', visitsRoutes)
+app.use('/api/calendar', calendarRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/admin', adminRoutes)
