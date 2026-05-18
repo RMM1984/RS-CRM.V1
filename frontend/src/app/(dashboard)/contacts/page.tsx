@@ -1079,7 +1079,7 @@ const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
             <Field label="Habitaciones min.">
               <Input onChange={(event) => setDraft((current) => ({ ...current, rooms_min: event.target.value }))} value={draft.rooms_min} />
             </Field>
-            <Field label="Banos min.">
+            <Field label="Baños min.">
               <Input onChange={(event) => setDraft((current) => ({ ...current, bathrooms_min: event.target.value }))} value={draft.bathrooms_min} />
             </Field>
             <Field label="Superficie min.">

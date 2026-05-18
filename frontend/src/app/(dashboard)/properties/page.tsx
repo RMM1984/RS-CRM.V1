@@ -514,7 +514,7 @@ export default function PropertiesPage() {
 
   const onImportExternal = async (payload: ImportExternalPropertyDto) => {
     const property = await importExternalProperty.mutateAsync(payload)
-    const label = payload.import_as === 'internal' ? 'EXCLUSIVA' : 'COLABORACION'
+    const label = payload.import_as === 'internal' ? 'EXCLUSIVA' : 'COLABORACIÓN'
 
     setNotice({ type: 'success', message: `Anadida a tu cartera como ${label}.` })
     setImportTarget(null)
@@ -895,7 +895,7 @@ export default function PropertiesPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Badge className={selectedProperty.source === 'colaboracion' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'}>
-                  {selectedProperty.source === 'colaboracion' ? 'COLABORACION' : 'EXCLUSIVA'}
+                  {selectedProperty.source === 'colaboracion' ? 'COLABORACIÓN' : 'EXCLUSIVA'}
                 </Badge>
                 <Badge className="bg-slate-900 text-white">{operationLabels[selectedProperty.operation]}</Badge>
                 <Badge>{statusLabels[selectedProperty.status]}</Badge>
@@ -1124,7 +1124,7 @@ const PropertyCard = ({
           property.source === 'colaboracion' ? 'bg-orange-500' : 'bg-emerald-600'
         )}
       >
-        {property.source === 'colaboracion' ? 'COLABORACION' : 'EXCLUSIVA'}
+        {property.source === 'colaboracion' ? 'COLABORACIÓN' : 'EXCLUSIVA'}
       </Badge>
     </div>
     <div className="flex flex-1 flex-col gap-3 bg-card p-4">
@@ -1134,9 +1134,6 @@ const PropertyCard = ({
       </div>
       <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
       <FeatureRow property={property} />
-      {property.source === 'colaboracion' && property.source_agency_name ? (
-        <p className="text-xs font-medium text-orange-700">{property.source_agency_name}</p>
-      ) : null}
       {property.assigned_to_name ? <p className="text-xs text-muted-foreground">Agente: {property.assigned_to_name}</p> : null}
       <InlineMatches contacts={matches} />
       <div className="mt-auto grid grid-cols-4 gap-1">
@@ -1210,7 +1207,7 @@ const FeatureRow = ({ property }: { property: Property | ExternalProperty }) => 
     <Badge>{property.type}</Badge>
     {property.surface_m2 ? <Badge>{property.surface_m2} m2</Badge> : null}
     {property.rooms ? <Badge>{property.rooms} hab</Badge> : null}
-    {property.bathrooms ? <Badge>{property.bathrooms} baños</Badge> : null}
+    {property.bathrooms ? <Badge>{property.bathrooms} {property.bathrooms === 1 ? 'baño' : 'baños'}</Badge> : null}
   </div>
 )
 
@@ -1273,7 +1270,7 @@ const FeatureGrid = ({ property }: { property: Property }) => (
     </Card>
     <Card className="p-3">
       <Bath className="mb-2 h-4 w-4 text-muted-foreground" />
-      <p className="text-xs uppercase text-muted-foreground">Banos</p>
+      <p className="text-xs uppercase text-muted-foreground">Baños</p>
       <p className="font-semibold">{property.bathrooms || '-'}</p>
     </Card>
     <Card className="p-3">
@@ -1355,7 +1352,7 @@ const PropertyModal = ({
           <Field label="Habitaciones">
             <Input type="number" {...form.register('rooms')} />
           </Field>
-          <Field label="Banos">
+          <Field label="Baños">
             <Input type="number" {...form.register('bathrooms')} />
           </Field>
         </div>
@@ -1394,7 +1391,7 @@ const ImportPropertyModal = ({
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
       <Card className="w-full max-w-xl p-5">
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-xl font-semibold">Anadir a mi cartera</h3>
+          <h3 className="text-xl font-semibold">Añadir a mi cartera</h3>
           <Button onClick={onClose} size="icon" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
@@ -1445,7 +1442,7 @@ const ImportPropertyModal = ({
             <label className="flex cursor-pointer gap-3 rounded-md border p-3">
               <input checked={importAs === 'colaboracion'} onChange={() => setImportAs('colaboracion')} type="radio" />
               <span>
-                <span className="block font-semibold">COLABORACION</span>
+                <span className="block font-semibold">COLABORACIÓN</span>
                 <span className="text-sm text-muted-foreground">Trabajo con la agencia origen</span>
               </span>
             </label>
@@ -1459,7 +1456,7 @@ const ImportPropertyModal = ({
             </Button>
             <Button disabled={isSaving} type="submit">
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Anadir a cartera
+              Añadir a cartera
             </Button>
           </div>
         </form>

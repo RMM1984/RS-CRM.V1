@@ -55,7 +55,7 @@ const toNumber = (value: number | string | null | undefined) => {
 }
 
 const isExternalProperty = (property: DetailProperty): property is ExternalProperty =>
-  'source_url' in property && property.source !== 'internal'
+  'source_url' in property && property.source !== 'internal' && property.source !== 'colaboracion'
 
 const mainImage = (property: DetailProperty) =>
   ('image_url' in property && property.image_url) || property.images?.[0]?.url || ''
@@ -79,12 +79,20 @@ const detailAgencyName = (property: DetailProperty) => {
 }
 
 const detailBadgeText = (property: DetailProperty) => {
-  if (!isExternalProperty(property)) return 'EXCLUSIVA'
+  if (!isExternalProperty(property)) return property.source === 'colaboracion' ? 'COLABORACIÓN' : 'EXCLUSIVA'
   if (property.source === 'crown_property') return 'AGENCIA Crown Property'
   if (property.source === 'vicens_ash') return 'AGENCIA Vicens Ash'
   if (property.source === 'ego_real_estate') return `AGENCIA ${detailAgencyName(property)}`
 
   return 'AGENCIA'
+}
+
+const detailBadgeClass = (property: DetailProperty) => {
+  if (!isExternalProperty(property)) {
+    return property.source === 'colaboracion' ? 'bg-orange-500' : 'bg-emerald-600'
+  }
+
+  return 'bg-blue-600'
 }
 
 const priceAnalysis = (pricePerM2: number) => {
@@ -109,6 +117,23 @@ const priceAnalysis = (pricePerM2: number) => {
     text: 'Precio por m² por encima de la media, propio de producto prime o ubicaciones singulares.',
     tone: 'amber'
   }
+}
+
+const DetailImage = ({ alt, src }: { alt: string; src: string }) => {
+  const [hasError, setHasError] = useState(false)
+
+  if (!src || hasError) {
+    return <Home className="h-24 w-24 text-slate-400" />
+  }
+
+  return (
+    <img
+      alt={alt}
+      className="h-full w-full object-cover"
+      onError={() => setHasError(true)}
+      src={src}
+    />
+  )
 }
 
 export default function PropertyDetailPage() {
@@ -151,7 +176,7 @@ export default function PropertyDetailPage() {
       { icon: Home, label: 'Tipo', value: property.type || '-' },
       { icon: Ruler, label: 'Superficie', value: surface ? `${numberFormat.format(surface)} m²` : '-' },
       { icon: Building2, label: 'Habitaciones', value: property.rooms ? `${property.rooms} hab` : '-' },
-      { icon: Bath, label: 'Baños', value: property.bathrooms ? `${property.bathrooms} baños` : '-' },
+      { icon: Bath, label: 'Baños', value: property.bathrooms ? `${property.bathrooms} ${property.bathrooms === 1 ? 'baño' : 'baños'}` : '-' },
       ...(plot ? [{ icon: Leaf, label: 'Parcela', value: `${numberFormat.format(plot)} m² parcela` }] : [])
     ]
   }, [plot, property, surface])
@@ -210,7 +235,7 @@ export default function PropertyDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <Badge className={cn('px-3 py-1 text-white', isExternalProperty(property) ? 'bg-blue-600' : 'bg-emerald-600')}>
+          <Badge className={cn('px-3 py-1 text-white', detailBadgeClass(property))}>
             {detailBadgeText(property)}
           </Badge>
         </div>
@@ -220,7 +245,7 @@ export default function PropertyDetailPage() {
         </Button>
         <div className="grid h-[440px] place-items-center bg-slate-100">
           {imageUrl ? (
-            <img alt={property.title} className="h-full w-full object-cover" src={imageUrl} />
+            <DetailImage alt={property.title} src={imageUrl} />
           ) : (
             <Home className="h-24 w-24 text-slate-400" />
           )}
