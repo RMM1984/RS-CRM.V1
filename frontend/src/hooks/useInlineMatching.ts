@@ -56,6 +56,7 @@ export const useInlineMatching = (properties: MatchableProperty[], contacts: Con
 
           if (contact.needs_pool && text.includes('piscina')) score += 15
           if (contact.needs_sea_view && text.includes('mar')) score += 15
+          if (contact.needs_terrace && (text.includes('terraza') || text.includes('terrace'))) score += 10
           if (zoneMatches(property, contact.preferred_zones)) score += 20
           if (contact.client_profile === 'luxury_premium' && price > 1500000) score += 20
           if (contact.client_profile === 'luxury_standard' && price > 600000 && price <= 1500000) score += 20

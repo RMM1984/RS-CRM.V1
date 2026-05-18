@@ -21,6 +21,7 @@ type ContactSeed = {
   needs_sea_view?: boolean
   needs_garden?: boolean
   needs_parking?: boolean
+  needs_terrace?: boolean
   preferred_zones?: string[]
   languages?: string[]
   requirements_text: string
@@ -50,6 +51,7 @@ ADD COLUMN IF NOT EXISTS needs_pool BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS needs_sea_view BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS needs_garden BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS needs_parking BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS needs_terrace BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS preferred_zones TEXT[] DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS languages TEXT[] DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS requirements_text TEXT;
@@ -189,6 +191,93 @@ const CONTACTS: ContactSeed[] = [
     preferred_zones: ['Pueblo', 'Montgó'],
     languages: ['fr', 'en'],
     requirements_text: 'Maison avec espace bureau, jardin, bonne connexion internet, 350-550k, travail à distance, cherche calme et nature'
+  },
+  {
+    name: 'Sophie Dubois',
+    email: 'sophie.dubois@hotmail.be',
+    phone: '+32 478 12 34 56',
+    type: 'comprador',
+    source: 'portal',
+    status: 'activo',
+    client_profile: 'investor_yield',
+    budget_min: 200000,
+    budget_max: 450000,
+    rooms_min: 2,
+    price_per_m2_max: 3200,
+    needs_pool: false,
+    needs_sea_view: false,
+    preferred_zones: ['Arenal', 'Puerto', 'Centro'],
+    languages: ['fr', 'nl', 'en'],
+    requirements_text: 'Appartement pour location saisonnière, rendement minimum 5%, zone touristique, budget 200-450k'
+  },
+  {
+    name: 'Miguel Ángel Torres',
+    email: 'matorres@gmail.com',
+    phone: '+34 655 987 654',
+    type: 'comprador',
+    source: 'referral',
+    status: 'activo',
+    client_profile: 'second_home',
+    budget_min: 350000,
+    budget_max: 600000,
+    rooms_min: 3,
+    needs_pool: true,
+    needs_terrace: true,
+    preferred_zones: ['Montgó', 'Balcón al Mar'],
+    languages: ['es'],
+    requirements_text: 'Segunda residencia para verano, mínimo 3 hab para familia con niños, piscina y terraza imprescindibles, zona tranquila'
+  },
+  {
+    name: 'Oliver Bennett',
+    email: 'o.bennett@remotework.co.uk',
+    phone: '+44 7911 123456',
+    type: 'comprador',
+    source: 'web',
+    status: 'activo',
+    client_profile: 'digital_nomad',
+    budget_min: 280000,
+    budget_max: 480000,
+    rooms_min: 2,
+    surface_min: 70,
+    needs_terrace: true,
+    needs_garden: false,
+    preferred_zones: ['Puerto', 'Arenal', 'Centro'],
+    languages: ['en'],
+    requirements_text: 'Home office space essential, fast internet, modern apartment or townhouse, terrace for outdoor working, 280-480k'
+  },
+  {
+    name: 'Klaus Bergmann',
+    email: 'k.bergmann@invest.de',
+    phone: '+49 176 12345678',
+    type: 'comprador',
+    source: 'referral',
+    status: 'activo',
+    client_profile: 'investor_flip',
+    budget_min: 100000,
+    budget_max: 320000,
+    needs_renovation: true,
+    price_per_m2_max: 2200,
+    preferred_zones: ['Pueblo', 'Centro', 'Arenal'],
+    languages: ['de', 'en'],
+    requirements_text: 'Kaufe Immobilien zur Renovierung und Weiterverkauf, max 320k, renovierungsbedürftig, gute Lage für Wiederverkauf, schnelle Entscheidung'
+  },
+  {
+    name: 'François Lecomte',
+    email: 'f.lecomte@luxe-invest.fr',
+    phone: '+33 6 98 76 54 32',
+    type: 'comprador',
+    source: 'referral',
+    status: 'activo',
+    client_profile: 'luxury_premium',
+    budget_min: 1800000,
+    budget_max: 3500000,
+    rooms_min: 4,
+    needs_pool: true,
+    needs_sea_view: true,
+    needs_garden: true,
+    preferred_zones: ['Balcón al Mar', 'Cap Martí', 'Montgó'],
+    languages: ['fr', 'en'],
+    requirements_text: "Villa d'exception avec vue mer panoramique, piscine à débordement, grand terrain, architecture contemporaine, budget 1.8-3.5M, discrétion assurée"
   }
 ]
 
@@ -240,10 +329,11 @@ const main = async () => {
             needs_sea_view = $16,
             needs_garden = $17,
             needs_parking = $18,
-            preferred_zones = $19,
-            languages = $20,
-            requirements_text = $21,
-            notes = COALESCE(notes, $21),
+            needs_terrace = $19,
+            preferred_zones = $20,
+            languages = $21,
+            requirements_text = $22,
+            notes = COALESCE(notes, $22),
             updated_at = now()
            WHERE email = $1`,
           [
@@ -265,6 +355,7 @@ const main = async () => {
             contact.needs_sea_view ?? false,
             contact.needs_garden ?? false,
             contact.needs_parking ?? false,
+            contact.needs_terrace ?? false,
             contact.preferred_zones ?? [],
             contact.languages ?? [],
             contact.requirements_text
@@ -279,13 +370,13 @@ const main = async () => {
           full_name, email, phone, type, source, status, notes, assigned_to, active,
           client_profile, budget_min, budget_max, rooms_min, bathrooms_min, surface_min,
           price_per_m2_max, needs_renovation, needs_pool, needs_sea_view, needs_garden,
-          needs_parking, preferred_zones, languages, requirements_text
+          needs_parking, needs_terrace, preferred_zones, languages, requirements_text
         )
         VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,true,
           $9,$10,$11,$12,$13,$14,
           $15,$16,$17,$18,$19,
-          $20,$21,$22,$23
+          $20,$21,$22,$23,$24
         )`,
         [
           contact.name,
@@ -308,6 +399,7 @@ const main = async () => {
           contact.needs_sea_view ?? false,
           contact.needs_garden ?? false,
           contact.needs_parking ?? false,
+          contact.needs_terrace ?? false,
           contact.preferred_zones ?? [],
           contact.languages ?? [],
           contact.requirements_text

@@ -48,6 +48,7 @@ const createContactSchema = z.object({
   needs_sea_view: z.boolean().optional().nullable(),
   needs_garden: z.boolean().optional().nullable(),
   needs_parking: z.boolean().optional().nullable(),
+  needs_terrace: z.boolean().optional().nullable(),
   preferred_zones: z.array(z.string().trim().min(1)).optional().nullable(),
   languages: z.array(z.string().trim().min(1)).optional().nullable(),
   requirements_text: z.string().trim().optional().nullable()

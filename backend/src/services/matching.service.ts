@@ -18,6 +18,7 @@ type MatchContact = {
   needs_sea_view: boolean
   needs_garden: boolean
   needs_parking: boolean
+  needs_terrace: boolean
   preferred_zones: string[] | null
   languages: string[] | null
   requirements_text: string | null
@@ -167,6 +168,11 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
         reasons.push('Jardín requerido')
       }
 
+      if (contact.needs_terrace && featureMatches(text, ['terraza', 'terrace', 'terrasse'])) {
+        score += 10
+        reasons.push('Terraza requerida')
+      }
+
       if (contact.needs_parking && featureMatches(text, ['parking', 'garaje', 'garage', 'plaza'])) {
         score += 10
         reasons.push('Parking requerido')
@@ -242,6 +248,7 @@ export const getPropertyMatches = async (db: PoolClient, property: MatchProperty
       COALESCE(needs_sea_view, false) AS needs_sea_view,
       COALESCE(needs_garden, false) AS needs_garden,
       COALESCE(needs_parking, false) AS needs_parking,
+      COALESCE(needs_terrace, false) AS needs_terrace,
       preferred_zones,
       languages,
       requirements_text

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS contacts (
   needs_sea_view BOOLEAN DEFAULT false,
   needs_garden BOOLEAN DEFAULT false,
   needs_parking BOOLEAN DEFAULT false,
+  needs_terrace BOOLEAN DEFAULT false,
   preferred_zones TEXT[] DEFAULT '{}',
   languages TEXT[] DEFAULT '{}',
   requirements_text TEXT,

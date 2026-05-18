@@ -996,6 +996,7 @@ const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
     needs_sea_view: Boolean(contact.needs_sea_view),
     needs_garden: Boolean(contact.needs_garden),
     needs_parking: Boolean(contact.needs_parking),
+    needs_terrace: Boolean(contact.needs_terrace),
     preferred_zones: (contact.preferred_zones ?? []).join(', '),
     languages: (contact.languages ?? []).join(', '),
     requirements_text: contact.requirements_text ?? ''
@@ -1015,6 +1016,7 @@ const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
       needs_sea_view: Boolean(contact.needs_sea_view),
       needs_garden: Boolean(contact.needs_garden),
       needs_parking: Boolean(contact.needs_parking),
+      needs_terrace: Boolean(contact.needs_terrace),
       preferred_zones: (contact.preferred_zones ?? []).join(', '),
       languages: (contact.languages ?? []).join(', '),
       requirements_text: contact.requirements_text ?? ''
@@ -1037,6 +1039,7 @@ const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
     draft.needs_sea_view && 'vistas al mar',
     draft.needs_garden && 'jardin',
     draft.needs_parking && 'parking',
+    draft.needs_terrace && 'terraza',
     draft.needs_renovation && 'reforma'
   ].filter(Boolean)
 
@@ -1097,6 +1100,7 @@ const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
                 ['needs_sea_view', 'Vistas al mar'],
                 ['needs_garden', 'Jardin'],
                 ['needs_parking', 'Parking'],
+                ['needs_terrace', 'Terraza'],
                 ['needs_renovation', 'Reforma']
               ].map(([key, label]) => (
                 <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm" key={key}>
@@ -1149,6 +1153,7 @@ const BuyerProfileSection = ({ contact }: { contact: Contact }) => {
                   needs_sea_view: draft.needs_sea_view,
                   needs_garden: draft.needs_garden,
                   needs_parking: draft.needs_parking,
+                  needs_terrace: draft.needs_terrace,
                   preferred_zones: listOrNull(draft.preferred_zones),
                   languages: listOrNull(draft.languages),
                   requirements_text: draft.requirements_text || null

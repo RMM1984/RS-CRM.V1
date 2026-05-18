@@ -67,6 +67,46 @@ const operations = [
     value: 295000,
     notes: 'Segunda visita a apartamento en el pueblo. Les ha gustado mucho. Pendientes de hablar con el banco para confirmar hipoteca.',
     createdDaysAgo: 5
+  },
+  {
+    email: 'f.lecomte@luxe-invest.fr',
+    type: 'sale',
+    stage: 'lead',
+    value: 2800000,
+    notes: 'Contacto vía referencia exclusiva. Busca villa contemporánea con infinity pool y vistas al Mediterráneo. Presupuesto real hasta 3.5M. Viene a Jávea en julio.',
+    createdDaysAgo: 2
+  },
+  {
+    email: 'sophie.dubois@hotmail.be',
+    type: 'sale',
+    stage: 'visit',
+    value: 380000,
+    notes: 'Ha visto 3 apartamentos online. Visita confirmada para ver 2 en el Arenal. Muy centrada en la rentabilidad por alquiler vacacional. Quiere números antes de decidir.',
+    createdDaysAgo: 6
+  },
+  {
+    email: 'k.bergmann@invest.de',
+    type: 'sale',
+    stage: 'offer',
+    value: 265000,
+    notes: 'Oferta presentada sobre casa de pueblo en el casco antiguo. Precio pedido 290k, ofrece 265k. Propietario reflexionando. Cliente paga al contado.',
+    createdDaysAgo: 9
+  },
+  {
+    email: 'matorres@gmail.com',
+    type: 'sale',
+    stage: 'contract',
+    value: 545000,
+    notes: 'Arras firmadas sobre chalet en Montgó. 3 hab, piscina, vistas parciales al mar. Escritura en notaría el 20 de junio. Hipoteca aprobada por CaixaBank.',
+    createdDaysAgo: 25
+  },
+  {
+    email: 'o.bennett@remotework.co.uk',
+    type: 'sale',
+    stage: 'lead',
+    value: 420000,
+    notes: 'Encontró el CRM via Google. Trabaja para empresa fintech londinense 100% remoto. Quiere mudarse permanentemente a Jávea. Pendiente de enviarle selección de pisos con terraza en Puerto y Arenal.',
+    createdDaysAgo: 1
   }
 ]
 

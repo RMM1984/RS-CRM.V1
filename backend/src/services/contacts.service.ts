@@ -32,6 +32,7 @@ export type ContactInput = {
   needs_sea_view?: boolean | null
   needs_garden?: boolean | null
   needs_parking?: boolean | null
+  needs_terrace?: boolean | null
   preferred_zones?: string[] | null
   languages?: string[] | null
   requirements_text?: string | null
@@ -66,6 +67,7 @@ const contactSelect = `
   needs_sea_view,
   needs_garden,
   needs_parking,
+  needs_terrace,
   preferred_zones,
   languages,
   requirements_text,
@@ -169,13 +171,13 @@ export const createContact = async (
       full_name, phone, email, type, source, status, notes, assigned_to,
       client_profile, budget_min, budget_max, rooms_min, bathrooms_min, surface_min,
       price_per_m2_max, needs_renovation, needs_pool, needs_sea_view, needs_garden,
-      needs_parking, preferred_zones, languages, requirements_text, active
+      needs_parking, needs_terrace, preferred_zones, languages, requirements_text, active
     )
     VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8,
       $9, $10, $11, $12, $13, $14,
       $15, $16, $17, $18, $19,
-      $20, $21, $22, $23, true
+      $20, $21, $22, $23, $24, true
     )
     RETURNING ${contactSelect}`,
     [
@@ -199,6 +201,7 @@ export const createContact = async (
       data.needs_sea_view ?? false,
       data.needs_garden ?? false,
       data.needs_parking ?? false,
+      data.needs_terrace ?? false,
       data.preferred_zones ?? [],
       data.languages ?? [],
       data.requirements_text ?? null
@@ -243,6 +246,7 @@ export const updateContact = async (
   add('needs_sea_view', data.needs_sea_view ?? undefined)
   add('needs_garden', data.needs_garden ?? undefined)
   add('needs_parking', data.needs_parking ?? undefined)
+  add('needs_terrace', data.needs_terrace ?? undefined)
   add('preferred_zones', data.preferred_zones ?? undefined)
   add('languages', data.languages ?? undefined)
   add('requirements_text', data.requirements_text ?? undefined)

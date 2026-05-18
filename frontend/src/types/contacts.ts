@@ -34,6 +34,7 @@ export type Contact = {
   needs_sea_view: boolean
   needs_garden: boolean
   needs_parking: boolean
+  needs_terrace: boolean
   preferred_zones: string[] | null
   languages: string[] | null
   requirements_text: string | null
@@ -73,6 +74,7 @@ export type CreateContactDto = {
   needs_sea_view?: boolean | null
   needs_garden?: boolean | null
   needs_parking?: boolean | null
+  needs_terrace?: boolean | null
   preferred_zones?: string[] | null
   languages?: string[] | null
   requirements_text?: string | null
