@@ -8,6 +8,7 @@ export type PropertyImage = {
   id: string
   url: string
   path: string | null
+  position?: number | null
   created_at: string
 }
 
@@ -28,6 +29,7 @@ export type Property = {
   description: string | null
   assigned_to: string | null
   assigned_to_name?: string | null
+  primary_image_url?: string | null
   source: PropertySource
   source_url: string | null
   source_agency_name: string | null

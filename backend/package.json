@@ -15,7 +15,8 @@
     "seed:contacts": "ts-node src/scripts/seed-contacts.ts",
     "seed:users": "ts-node src/scripts/seed-users.ts",
     "seed:profiles": "ts-node src/scripts/seed-profiles.ts",
-    "seed:operations": "ts-node src/scripts/seed-operations.ts"
+    "seed:operations": "ts-node src/scripts/seed-operations.ts",
+    "refresh:images": "ts-node src/scripts/refresh-property-images.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

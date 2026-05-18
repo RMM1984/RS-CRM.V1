@@ -1117,7 +1117,7 @@ const PropertyCard = ({
 }) => (
   <Card className="flex h-full flex-col overflow-hidden">
     <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
-      <PropertyImage alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" src={property.images?.[0]?.url} />
+      <PropertyImage alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" src={property.primary_image_url || property.images?.[0]?.url} />
       <Badge
         className={cn(
           'absolute left-3 top-3 text-white shadow-sm',

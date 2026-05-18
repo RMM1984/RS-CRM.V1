@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS property_images (
   property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
   path TEXT,
+  position INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

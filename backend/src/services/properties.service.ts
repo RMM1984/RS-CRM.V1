@@ -119,9 +119,16 @@ const propertyListSelect = `
     FROM public.users u
     WHERE u.id = properties.assigned_to
   ) AS assigned_to_name,
+  (
+    SELECT pi.url
+    FROM property_images pi
+    WHERE pi.property_id = properties.id
+    ORDER BY pi.position ASC NULLS LAST, pi.created_at ASC
+    LIMIT 1
+  ) AS primary_image_url,
   COALESCE(
     (
-      SELECT json_agg(pi ORDER BY pi.created_at)
+      SELECT json_agg(pi ORDER BY pi.position ASC NULLS LAST, pi.created_at ASC)
       FROM property_images pi
       WHERE pi.property_id = properties.id
     ),
@@ -222,7 +229,10 @@ export const getProperty = async (db: PoolClient, id: string) => {
     [id]
   )
   if (!property.rows[0]) return null
-  const images = await db.query('SELECT id, url, path, created_at FROM property_images WHERE property_id = $1 ORDER BY created_at', [id])
+  const images = await db.query(
+    'SELECT id, url, path, position, created_at FROM property_images WHERE property_id = $1 ORDER BY position ASC NULLS LAST, created_at ASC',
+    [id]
+  )
   return { ...property.rows[0], images: images.rows }
 }
 
@@ -262,7 +272,7 @@ export const importExternalProperty = async (
 
   if (property && imageUrl) {
     await db.query(
-      'INSERT INTO property_images (property_id, url, path) VALUES ($1,$2,$3)',
+      'INSERT INTO property_images (property_id, url, path, position) VALUES ($1,$2,$3,0)',
       [property.id, imageUrl, null]
     )
   }
@@ -344,9 +354,13 @@ export const addPropertyImage = async (db: PoolClient, id: string, file?: Upload
     url = `${env.SUPABASE_URL}/storage/v1/object/public/property-images/${path}`
   }
 
+  const positionResult = await db.query<{ position: number }>(
+    'SELECT COALESCE(MAX(position), -1) + 1 AS position FROM property_images WHERE property_id = $1',
+    [id]
+  )
   const { rows } = await db.query(
-    'INSERT INTO property_images (property_id, url, path) VALUES ($1,$2,$3) RETURNING id, url, path, created_at',
-    [id, url, path]
+    'INSERT INTO property_images (property_id, url, path, position) VALUES ($1,$2,$3,$4) RETURNING id, url, path, position, created_at',
+    [id, url, path, positionResult.rows[0]?.position ?? 0]
   )
   return rows[0]
 }
