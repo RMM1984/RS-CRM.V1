@@ -324,7 +324,7 @@ export function parseCrownSearchQuery(query: string, overrides?: { type?: string
 export function searchCrownProperties(query: string, overrides?: { type?: string | null }): ExternalProperty[] {
   const keywords = parseCrownSearchQuery(query, overrides)
   const scored = cache.data
-    .filter((property) => keywords.type || keywords.price_max || keywords.rooms_min || keywords.bathrooms_min || keywords.surface_min || keywords.features.length || keywords.raw_terms.length ? passesHardFilters(property, keywords) : true)
+    .filter((property) => keywords.type || keywords.price_max || keywords.rooms_exact || keywords.rooms_min || keywords.bathrooms_min || keywords.surface_min || keywords.features.length || keywords.raw_terms.length ? passesHardFilters(property, keywords) : true)
     .map((property) => ({ property, score: scoreProperty(property, keywords) }))
     .sort((a, b) => {
       if (a.score !== b.score) return b.score - a.score

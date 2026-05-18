@@ -427,6 +427,7 @@ export default function PropertiesPage() {
 
       const chips = [
         result.keywords.type,
+        result.keywords.rooms_exact ? `${result.keywords.rooms_exact} hab` : null,
         result.keywords.rooms_min ? `${result.keywords.rooms_min} hab` : null,
         result.keywords.city,
         result.keywords.price_max ? `max. ${new Intl.NumberFormat('es-ES').format(result.keywords.price_max)}` : null,

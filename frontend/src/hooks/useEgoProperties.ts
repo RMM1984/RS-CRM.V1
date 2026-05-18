@@ -126,6 +126,7 @@ const passesFilters = (property: ExternalProperty, params: SearchKeywords) => {
   if (type && property.detected_type !== type && property.type !== type) return false
   if (params.operation && params.operation !== 'sale') return false
   if (params.price_max && property.price > params.price_max) return false
+  if (params.rooms_exact && property.rooms !== null && property.rooms !== undefined && property.rooms !== params.rooms_exact) return false
   if (params.rooms_min && property.rooms !== null && property.rooms !== undefined && property.rooms < params.rooms_min) return false
   if (params.bathrooms_min && property.bathrooms !== null && property.bathrooms !== undefined && property.bathrooms < params.bathrooms_min) return false
   if (params.surface_min && property.surface_m2 !== null && property.surface_m2 !== undefined && property.surface_m2 < params.surface_min) return false

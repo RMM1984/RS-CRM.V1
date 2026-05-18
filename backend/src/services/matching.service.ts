@@ -43,9 +43,8 @@ type ContactMatch = {
   score: number
   percentage: number
   reasons: string[]
+  match_reasons: string[]
 }
-
-const touristZones = ['arenal', 'puerto', 'montanar', 'balcon al mar', 'cap marti', 'portichol', 'granadella']
 
 const normalizeText = (value: string) =>
   value
@@ -98,26 +97,16 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
       let score = 0
       const reasons: string[] = []
       const budgetMax = toNumber(contact.budget_max)
-      const pricePerM2Max = toNumber(contact.price_per_m2_max)
-
       if (budgetMax !== null && price <= budgetMax) {
         score += 30
         reasons.push('Dentro de presupuesto')
       } else if (budgetMax !== null && price > budgetMax) {
-        score -= 50
+        score -= 40
       }
 
-      if (!contact.rooms_min || (property.rooms !== null && property.rooms !== undefined && property.rooms >= contact.rooms_min)) {
+      if (contact.rooms_min && property.rooms !== null && property.rooms !== undefined && property.rooms >= contact.rooms_min) {
         score += 15
         reasons.push('Habitaciones suficientes')
-      }
-
-      if (!contact.bathrooms_min || (property.bathrooms !== null && property.bathrooms !== undefined && property.bathrooms >= contact.bathrooms_min)) {
-        score += 5
-      }
-
-      if (!contact.surface_min || (surface !== null && surface >= contact.surface_min)) {
-        score += 10
       }
 
       if (contact.needs_pool && includesAny(text, ['piscina', 'pool', 'swimming', 'zwembad', 'schwimmbad'])) {
@@ -148,33 +137,24 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
       switch (contact.client_profile) {
         case 'luxury_premium':
           if (price > 1500000) score += 25
-          if (pricePerM2 && pricePerM2 > 6000) score += 15
           break
         case 'luxury_standard':
           if (price >= 600000 && price <= 1500000) score += 20
           break
         case 'investor_yield':
-          if (pricePerM2 && pricePerM2Max && pricePerM2 < pricePerM2Max) score += 20
-          if (touristZones.some((zone) => text.includes(zone))) score += 10
+          if (pricePerM2 && pricePerM2 < 3000) score += 15
           break
         case 'investor_flip':
-          if (contact.needs_renovation) score += 20
-          if (pricePerM2 && pricePerM2 < 2500) score += 15
+          if (includesAny(text, ['reforma', 'renovar', 'renovation', 'needs work', 'para reformar'])) score += 20
           break
         case 'foreign':
-          if (price > 300000) score += 10
-          if (contact.needs_sea_view) score += 10
+          score += 10
           break
         case 'second_home':
           if (property.type === 'apartment') score += 10
-          if (contact.needs_pool) score += 10
           break
         case 'first_home':
-          if (budgetMax && price <= budgetMax * 1.1) score += 15
-          break
-        case 'digital_nomad':
-          if (surface && surface >= 80) score += 10
-          if (contact.needs_garden) score += 10
+          if (price <= 350000) score += 15
           break
       }
 
@@ -187,11 +167,12 @@ export const matchContactsToProperty = (property: MatchProperty, contacts: Match
       return {
         contact,
         score,
-        percentage: Math.max(0, Math.min(100, score)),
-        reasons
+        percentage: Math.min(100, Math.round(score / 80 * 100)),
+        reasons,
+        match_reasons: reasons
       }
     })
-    .filter((match) => match.score > 20)
+    .filter((match) => match.score > 15)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
 }

@@ -4,6 +4,7 @@ export type SearchParams = {
   city?: string
   price_max?: number | null
   surface_min?: number | null
+  rooms_exact?: number | null
   rooms_min?: number | null
   bathrooms_min?: number | null
   terms?: string[]

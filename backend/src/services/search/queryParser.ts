@@ -2,6 +2,7 @@ export type ParsedQuery = {
   type: string | null
   operation?: 'sale' | 'rent' | null
   price_max: number | null
+  rooms_exact: number | null
   rooms_min: number | null
   bathrooms_min: number | null
   surface_min: number | null
@@ -122,7 +123,7 @@ const TYPE_KEYWORDS: Record<string, Record<string, string[]>> = {
     en: ['villa', 'chalet', 'detached', 'manor', 'estate', 'finca', 'farmhouse', 'mountain house'],
     de: ['villa', 'chalet', 'freistehendes haus', 'einfamilienhaus', 'anwesen', 'berghaus'],
     nl: ['villa', 'chalet', 'vrijstaand', 'herenhuis', 'landhuis', 'bergwoning'],
-    fr: ['villa', 'chalet', 'maison individuelle', 'propriete', 'manoir', 'bastide', 'mas']
+    fr: ['villa', 'chalet', 'maison individuelle', 'propriete', 'manoir', 'bastide']
   },
   apartment: {
     es: ['piso', 'apartamento', 'apto', 'estudio', 'bajo', 'atico', 'loft', 'duplex', 'planta baja', 'primero', 'segundo', 'tercero'],
@@ -263,6 +264,10 @@ const PRICE_PREFIXES = [
   'minder dan', 'tot', 'maximaal'
 ]
 
+const ROOM_UNITS = ['hab', 'bed', 'zimmer', 'slaap', 'chambre']
+const ROOM_MIN_PREFIXES = ['al menos', 'minimum', 'mindestens', 'minimaal', 'au moins']
+const ROOM_MORE_THAN_PREFIXES = ['mas de', 'more than', 'mehr als']
+
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const wordsOf = (text: string) => text.split(/\s+/).filter(Boolean)
 
@@ -342,17 +347,34 @@ export function extractPrice(text: string): number | null {
 
 const extractRoomsBathrooms = (text: string) => {
   const slash = text.match(/\b([1-9])\s*\/\s*([1-9])\b/)
-  let rooms: number | null = slash ? Number(slash[1]) : null
+  let roomsExact: number | null = slash ? Number(slash[1]) : null
+  let roomsMin: number | null = null
   let bathrooms: number | null = slash ? Number(slash[2]) : null
   const repeatedB = text.match(/\b([1-9])b\s+([1-9])b\b/)
 
   if (repeatedB) {
-    rooms = Number(repeatedB[1])
+    roomsExact = Number(repeatedB[1])
     bathrooms = Number(repeatedB[2])
   }
 
-  const roomMatch = text.match(/\b([1-9])\s*(hab|bed|zimmer|slaap|chambre)\b/)
-  if (roomMatch) rooms = Number(roomMatch[1])
+  for (const prefix of ROOM_MORE_THAN_PREFIXES) {
+    const match = text.match(new RegExp(`\\b${escapeRegExp(prefix)}\\s+([1-9])\\s*(${ROOM_UNITS.join('|')})\\b`))
+    if (match) {
+      roomsMin = Number(match[1]) + 1
+      roomsExact = null
+    }
+  }
+
+  for (const prefix of ROOM_MIN_PREFIXES) {
+    const match = text.match(new RegExp(`\\b${escapeRegExp(prefix)}\\s+([1-9])\\s*(${ROOM_UNITS.join('|')})\\b`))
+    if (match) {
+      roomsMin = Number(match[1])
+      roomsExact = null
+    }
+  }
+
+  const roomMatch = text.match(new RegExp(`\\b([1-9])\\s*(${ROOM_UNITS.join('|')})\\b`))
+  if (roomMatch && roomsMin === null) roomsExact = Number(roomMatch[1])
 
   const bathMatch = text.match(/\b([1-9])\s*(banos|bano|bath|bad|badkamer|salle|wc)\b|\b([1-9])ba\b/)
   if (bathMatch) bathrooms = Number(bathMatch[1] ?? bathMatch[3])
@@ -362,11 +384,11 @@ const extractRoomsBathrooms = (text: string) => {
     const value = NUMBER_WORDS[token]
     const next = tokens[index + 1] ?? ''
     if (!value) return
-    if (['hab', 'bed', 'zimmer', 'slaap', 'chambre'].includes(next)) rooms = value
+    if (ROOM_UNITS.includes(next) && roomsMin === null) roomsExact = value
     if (['banos', 'bano', 'bath', 'bad', 'badkamer', 'salle', 'wc'].includes(next)) bathrooms = value
   })
 
-  return { rooms, bathrooms }
+  return { roomsExact, roomsMin, bathrooms }
 }
 
 const extractSurface = (text: string) => {
@@ -414,7 +436,7 @@ const detectLanguage = (matches: Array<{ language: ParsedQuery['detected_languag
 
 export function parseQuery(query: string, overrides?: { type?: string | null }): ParsedQuery {
   const text = applyTypoCorrections(normalize(query))
-  const { rooms, bathrooms } = extractRoomsBathrooms(text)
+  const { roomsExact, roomsMin, bathrooms } = extractRoomsBathrooms(text)
   const featureMatches = dictionaryMatches(text, FEATURE_KEYWORDS)
   const typeMatches = dictionaryMatches(text, TYPE_KEYWORDS)
   const features = [...new Set(featureMatches.map((match) => match.key))]
@@ -437,7 +459,8 @@ export function parseQuery(query: string, overrides?: { type?: string | null }):
     type: overrides?.type && overrides.type !== 'all' ? overrides.type : detectPropertyType(text),
     operation: detectOperation(text),
     price_max: extractPrice(text),
-    rooms_min: rooms,
+    rooms_exact: roomsExact,
+    rooms_min: roomsMin,
     bathrooms_min: bathrooms,
     surface_min: extractSurface(text),
     features,
@@ -476,6 +499,7 @@ export function passesHardFilters(property: SearchableProperty, parsed: ParsedQu
 
   if (parsed.type && propertyType !== parsed.type) return false
   if (parsed.price_max !== null && price !== null && price > parsed.price_max) return false
+  if (parsed.rooms_exact !== null && property.rooms !== null && property.rooms !== undefined && property.rooms !== parsed.rooms_exact) return false
   if (parsed.rooms_min !== null && (property.rooms === null || property.rooms === undefined || property.rooms < parsed.rooms_min)) return false
   if (parsed.bathrooms_min !== null && property.bathrooms !== null && property.bathrooms !== undefined && property.bathrooms < parsed.bathrooms_min) return false
   if (parsed.surface_min !== null && surface !== null && surface < parsed.surface_min) return false
@@ -504,6 +528,7 @@ export function hasAnyDetectedParameter(parsed: ParsedQuery) {
     parsed.type ||
       parsed.operation ||
       parsed.price_max !== null ||
+      parsed.rooms_exact !== null ||
       parsed.rooms_min !== null ||
       parsed.bathrooms_min !== null ||
       parsed.surface_min !== null ||
