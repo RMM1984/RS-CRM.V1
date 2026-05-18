@@ -142,7 +142,7 @@ const main = async () => {
         CHECK (status IN ('draft', 'active', 'available', 'reserved', 'sold', 'rented', 'archived'));
       ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_source_check;
       ALTER TABLE properties ADD CONSTRAINT properties_source_check
-        CHECK (source IN ('internal', 'kyero', 'sooprema', 'crown_property', 'other'));
+        CHECK (source IN ('internal', 'crown_property', 'colaboracion', 'kyero', 'sooprema', 'other'));
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS plot_m2 NUMERIC;
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS external_ref TEXT;
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS external_badge TEXT;

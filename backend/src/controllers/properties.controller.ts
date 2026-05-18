@@ -10,7 +10,7 @@ const listQuerySchema = z.object({
   operation: z.enum(['sale', 'rent']).optional(),
   status: z.enum(['draft', 'active', 'available', 'reserved', 'sold', 'rented', 'archived']).optional(),
   city: z.string().trim().optional(),
-  source: z.enum(['internal', 'kyero', 'sooprema', 'crown_property', 'other', 'all']).optional(),
+  source: z.enum(['internal', 'colaboracion', 'kyero', 'sooprema', 'crown_property', 'other', 'all']).optional(),
   search: z.string().trim().optional(),
   price_min: z.coerce.number().nonnegative().optional(),
   price_max: z.coerce.number().nonnegative().optional(),
@@ -38,6 +38,24 @@ const propertySchema = z.object({
 const searchSchema = z.object({
   query: z.string().trim().min(2),
   type: z.string().trim().optional().nullable()
+})
+
+const importExternalSchema = z.object({
+  title: z.string().trim().min(2),
+  price: z.coerce.number().nonnegative(),
+  type: z.string().trim().min(2),
+  operation: z.enum(['sale', 'rent']),
+  city: z.string().trim().min(2),
+  zone: z.string().trim().optional().nullable(),
+  surface_m2: z.coerce.number().nonnegative().optional().nullable(),
+  rooms: z.coerce.number().int().nonnegative().optional().nullable(),
+  bathrooms: z.coerce.number().int().nonnegative().optional().nullable(),
+  image_url: z.string().trim().optional().nullable(),
+  source_url: z.string().trim().optional().nullable(),
+  source_agency_name: z.string().trim().optional().nullable(),
+  source_agency_phone: z.string().trim().optional().nullable(),
+  import_as: z.enum(['internal', 'colaboracion']),
+  notes: z.string().trim().optional().nullable()
 })
 
 const sendSuccess = <T>(res: Parameters<RequestHandler>[1], data: T, status = 200) =>
@@ -87,7 +105,7 @@ export const update: RequestHandler = async (req, res, next) => {
     }
 
     if ('forbidden' in property) {
-      return sendError(res, 'Solo se pueden editar propiedades exclusivas internas', 403)
+      return sendError(res, 'Solo se pueden editar propiedades de cartera', 403)
     }
 
     return sendSuccess(res, property)
@@ -106,7 +124,7 @@ export const remove: RequestHandler = async (req, res, next) => {
     }
 
     if ('forbidden' in property) {
-      return sendError(res, 'Solo se pueden archivar propiedades exclusivas internas', 403)
+      return sendError(res, 'Solo se pueden archivar propiedades de cartera', 403)
     }
 
     return sendSuccess(res, property)
@@ -130,6 +148,18 @@ export const matches: RequestHandler = async (req, res, next) => {
     const matchesResult = await propertiesService.getMatchesForProperty(req.db!, id)
 
     return matchesResult ? sendSuccess(res, { matches: matchesResult }) : sendError(res, 'Propiedad no encontrada', 404)
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export const importExternal: RequestHandler = async (req, res, next) => {
+  try {
+    return sendSuccess(
+      res,
+      await propertiesService.importExternalProperty(req.db!, importExternalSchema.parse(req.body), req.user!),
+      201
+    )
   } catch (err) {
     return next(err)
   }

@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS properties (
   plot_m2 NUMERIC,
   description TEXT,
   assigned_to UUID REFERENCES public.users(id),
-  source TEXT NOT NULL DEFAULT 'internal' CHECK (source IN ('internal','kyero','sooprema','crown_property','other')),
+  source TEXT NOT NULL DEFAULT 'internal' CHECK (source IN ('internal','crown_property','colaboracion','kyero','sooprema','other')),
   source_url TEXT,
   source_agency_name TEXT,
   source_agency_phone TEXT,

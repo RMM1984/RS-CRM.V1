@@ -47,6 +47,24 @@ export type PropertyInput = {
   assigned_to?: string | null
 }
 
+export type ImportExternalPropertyInput = {
+  title: string
+  price: number
+  type: string
+  operation: 'sale' | 'rent'
+  city: string
+  zone?: string | null
+  surface_m2?: number | null
+  rooms?: number | null
+  bathrooms?: number | null
+  image_url?: string | null
+  source_url?: string | null
+  source_agency_name?: string | null
+  source_agency_phone?: string | null
+  import_as: 'internal' | 'colaboracion'
+  notes?: string | null
+}
+
 export type ShortlistInput = {
   contact_id: string
   property_id?: string | null
@@ -128,7 +146,9 @@ export const listProperties = async (db: PoolClient, filters: PropertyFilters) =
   add('city', filters.city)
   if (filters.source && filters.source !== 'all') {
     if (filters.source === 'other') {
-      clauses.push(`source <> 'internal'`)
+      clauses.push(`source NOT IN ('internal', 'colaboracion')`)
+    } else if (filters.source === 'internal') {
+      clauses.push(`source IN ('internal', 'colaboracion')`)
     } else {
       add('source', filters.source)
     }
@@ -156,7 +176,7 @@ export const listProperties = async (db: PoolClient, filters: PropertyFilters) =
   const count = await db.query(`SELECT count(*)::int AS total FROM properties ${where}`, values)
   const { rows } = await db.query(
     `SELECT ${propertyListSelect} FROM properties ${where}
-     ORDER BY source = 'internal' DESC, created_at DESC
+     ORDER BY source IN ('internal', 'colaboracion') DESC, created_at DESC
      LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
     [...values, filters.limit, offset]
   )
@@ -206,6 +226,50 @@ export const getProperty = async (db: PoolClient, id: string) => {
   return { ...property.rows[0], images: images.rows }
 }
 
+export const importExternalProperty = async (
+  db: PoolClient,
+  data: ImportExternalPropertyInput,
+  user: AuthUser
+) => {
+  const { rows } = await db.query(
+    `INSERT INTO properties
+    (title, address, city, property_type, operation, price, sqm, bedrooms, bathrooms,
+     status, description, assigned_to, source, source_url, source_agency_name,
+     source_agency_phone, active)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'available',$10,$11,$12,$13,$14,$15,true)
+    RETURNING ${propertySelect}`,
+    [
+      data.title,
+      data.zone || data.city,
+      data.city,
+      data.type,
+      data.operation,
+      data.price,
+      data.surface_m2 ?? null,
+      data.rooms ?? null,
+      data.bathrooms ?? null,
+      data.notes ?? null,
+      user.id,
+      data.import_as,
+      data.source_url ?? null,
+      data.source_agency_name ?? null,
+      data.source_agency_phone ?? null
+    ]
+  )
+
+  const property = rows[0]
+  const imageUrl = data.image_url?.trim()
+
+  if (property && imageUrl) {
+    await db.query(
+      'INSERT INTO property_images (property_id, url, path) VALUES ($1,$2,$3)',
+      [property.id, imageUrl, null]
+    )
+  }
+
+  return getProperty(db, property.id)
+}
+
 export const getMatchesForProperty = async (db: PoolClient, id: string) => {
   const property = await getProperty(db, id)
 
@@ -219,7 +283,7 @@ export const getMatchesForProperty = async (db: PoolClient, id: string) => {
 export const updateProperty = async (db: PoolClient, id: string, data: Partial<PropertyInput>) => {
   const existing = await getProperty(db, id)
   if (!existing) return null
-  if (existing.source !== 'internal') return { forbidden: true }
+  if (!['internal', 'colaboracion'].includes(existing.source)) return { forbidden: true }
 
   const map: Record<string, string> = {
     type: 'property_type',
@@ -246,7 +310,7 @@ export const updateProperty = async (db: PoolClient, id: string, data: Partial<P
 export const deleteProperty = async (db: PoolClient, id: string) => {
   const existing = await getProperty(db, id)
   if (!existing) return null
-  if (existing.source !== 'internal') return { forbidden: true }
+  if (!['internal', 'colaboracion'].includes(existing.source)) return { forbidden: true }
   const { rows } = await db.query(
     `UPDATE properties SET active = false, status = 'archived', updated_at = now()
      WHERE id = $1 RETURNING ${propertySelect}`,
@@ -598,12 +662,12 @@ export const searchProperties = async (db: PoolClient, query: string, overrides?
       `SELECT ${propertyListSelect}
        FROM properties
        WHERE ${clauses.join(' AND ')}
-       ORDER BY source = 'internal' DESC, created_at DESC
+       ORDER BY source IN ('internal', 'colaboracion') DESC, created_at DESC
        LIMIT 20`,
       values
     )
     const scored = rows
-      .filter((property) => property.source === 'internal')
+      .filter((property) => ['internal', 'colaboracion'].includes(property.source))
       .filter((property) => (hasAnyDetectedParameter(crownKeywords) ? passesHardFilters(property, crownKeywords) : true))
       .map((property) => ({ property, score: scoreProperty(property, crownKeywords) }))
       .sort((a, b) => {

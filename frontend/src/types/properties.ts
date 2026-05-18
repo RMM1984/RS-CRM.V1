@@ -1,6 +1,6 @@
 export type PropertyOperation = 'sale' | 'rent'
 export type PropertyStatus = 'draft' | 'active' | 'available' | 'reserved' | 'sold' | 'rented' | 'archived'
-export type PropertySource = 'internal' | 'kyero' | 'sooprema' | 'crown_property' | 'ego_real_estate' | 'vicens_ash' | 'other'
+export type PropertySource = 'internal' | 'colaboracion' | 'kyero' | 'sooprema' | 'crown_property' | 'ego_real_estate' | 'vicens_ash' | 'other'
 export type PropertyType = 'piso' | 'apartamento' | 'chalet' | 'villa' | 'local' | 'oficina' | string
 export type ShortlistStatus = 'investigating' | 'visit_pending' | 'interested' | 'discarded'
 
@@ -47,7 +47,7 @@ export type ExternalProperty = {
   operation: PropertyOperation
   type: PropertyType
   detected_type?: PropertyType
-  source: Exclude<PropertySource, 'internal'>
+  source: Exclude<PropertySource, 'internal' | 'colaboracion'>
   source_url: string
   source_agency_name?: string
   source_agency_phone?: string
@@ -103,6 +103,24 @@ export type CreatePropertyDto = {
 }
 
 export type UpdatePropertyDto = Partial<CreatePropertyDto>
+
+export type ImportExternalPropertyDto = {
+  title: string
+  price: number
+  type: PropertyType
+  operation: PropertyOperation
+  city: string
+  zone?: string | null
+  surface_m2?: number | null
+  rooms?: number | null
+  bathrooms?: number | null
+  image_url?: string | null
+  source_url?: string | null
+  source_agency_name?: string | null
+  source_agency_phone?: string | null
+  import_as: 'internal' | 'colaboracion'
+  notes?: string | null
+}
 
 export type SearchKeywords = {
   type?: string | null

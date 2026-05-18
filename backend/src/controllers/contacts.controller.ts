@@ -21,6 +21,7 @@ const listQuerySchema = z.object({
   type: contactTypeSchema.optional(),
   status: contactStatusSchema.optional(),
   assigned_to: z.string().uuid().optional(),
+  has_profile: z.coerce.boolean().optional(),
   search: z.string().trim().min(1).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20)

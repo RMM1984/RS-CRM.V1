@@ -5,6 +5,7 @@ export type ContactFilters = {
   type?: string
   status?: string
   assigned_to?: string
+  has_profile?: boolean
   search?: string
   page: number
   limit: number
@@ -103,6 +104,10 @@ export const listContacts = async (
   if (filters.search) {
     values.push(`%${filters.search}%`)
     clauses.push(`(full_name ILIKE $${values.length} OR email ILIKE $${values.length} OR phone ILIKE $${values.length})`)
+  }
+
+  if (filters.has_profile) {
+    clauses.push('client_profile IS NOT NULL')
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''

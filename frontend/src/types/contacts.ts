@@ -83,6 +83,7 @@ export type UpdateContactDto = Partial<CreateContactDto>
 export type ContactFilters = {
   type?: ContactType | 'todos'
   status?: ContactStatus | 'todos'
+  has_profile?: boolean
   search?: string
   page: number
   limit: number

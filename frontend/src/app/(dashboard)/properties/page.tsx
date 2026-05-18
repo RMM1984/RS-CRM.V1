@@ -31,9 +31,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useContacts } from '@/hooks/useContacts'
 import { useEgoProperties } from '@/hooks/useEgoProperties'
+import { useInlineMatching } from '@/hooks/useInlineMatching'
 import {
   useCreateProperty,
   useDeleteProperty,
+  useImportExternalProperty,
   useProperties,
   useProperty,
   usePropertySearch,
@@ -43,9 +45,11 @@ import {
 } from '@/hooks/useProperties'
 import { formatPropertyPrice, formatPropertySource } from '@/lib/properties-format'
 import { cn } from '@/lib/utils'
+import type { Contact } from '@/types/contacts'
 import type {
   CreatePropertyDto,
   ExternalProperty,
+  ImportExternalPropertyDto,
   Property,
   PropertyFilters,
   PropertyOperation,
@@ -112,6 +116,7 @@ const operationLabels: Record<PropertyOperation, string> = {
 const sourceLabels: Record<PropertySource | 'all', string> = {
   all: 'todas',
   internal: 'exclusivas',
+  colaboracion: 'colaboraciones',
   kyero: 'Kyero',
   sooprema: 'Sooprema',
   crown_property: 'Crown Property',
@@ -265,6 +270,7 @@ export default function PropertiesPage() {
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
   const [shortlistTarget, setShortlistTarget] = useState<Property | ExternalProperty | null>(null)
+  const [importTarget, setImportTarget] = useState<ExternalProperty | null>(null)
   const [duplicateShortlist, setDuplicateShortlist] = useState<{ contactId: string; contactName: string } | null>(null)
   const [toast, setToast] = useState<{ contactId: string; contactName: string } | null>(null)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -275,11 +281,13 @@ export default function PropertiesPage() {
   const propertiesQuery = useProperties(filters)
   const propertyQuery = useProperty(selectedPropertyId)
   const contactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', search: '' })
+  const profiledContactsQuery = useContacts({ page: 1, limit: 100, type: 'todos', status: 'todos', search: '', has_profile: true })
   const propertySearch = usePropertySearch(query)
   const egoProperties = useEgoProperties(searchResult?.parsed ?? null)
   const searchProperties = propertySearch.mutateAsync
   const resetPropertySearch = propertySearch.reset
   const createProperty = useCreateProperty()
+  const importExternalProperty = useImportExternalProperty()
   const updateProperty = useUpdateProperty()
   const deleteProperty = useDeleteProperty()
   const saveToShortlist = useSaveToShortlist()
@@ -306,9 +314,13 @@ export default function PropertiesPage() {
   }, [shortlistForm])
 
   const baseProperties = propertiesQuery.data?.properties ?? []
-  const internalProperties = searchResult ? searchResult.internal : baseProperties.filter((item) => item.source === 'internal')
+  const isPortfolioProperty = (property: Pick<Property, 'source'>) =>
+    property.source === 'internal' || property.source === 'colaboracion'
+  const internalProperties = searchResult
+    ? searchResult.internal.filter(isPortfolioProperty)
+    : baseProperties.filter(isPortfolioProperty)
   const localExternalProperties = baseProperties
-    .filter((item) => item.source !== 'internal')
+    .filter((item) => !isPortfolioProperty(item))
     .map((item) => ({
       id: item.id,
       title: item.title,
@@ -317,7 +329,7 @@ export default function PropertiesPage() {
       operation: item.operation,
       type: item.type,
       detected_type: item.type,
-      source: item.source === 'internal' ? 'other' : item.source,
+      source: (item.source === 'internal' || item.source === 'colaboracion' ? 'other' : item.source) as ExternalProperty['source'],
       source_url: item.source_url || '#',
       source_agency_name: item.source_agency_name || undefined,
       source_agency_phone: item.source_agency_phone || undefined,
@@ -340,6 +352,11 @@ export default function PropertiesPage() {
   const exclusiveCount = internalProperties.length
   const total = searchResult ? exclusiveCount + agencyProperties.length : propertiesQuery.data?.total ?? 0
   const selectedProperty = propertyQuery.data
+  const visibleProperties = useMemo(
+    () => [...internalProperties, ...agencyProperties],
+    [agencyProperties, internalProperties]
+  )
+  const inlineMatches = useInlineMatching(visibleProperties, profiledContactsQuery.data?.contacts ?? [])
 
   const openExternalDetail = (property: ExternalProperty) => {
     window.sessionStorage.setItem(`property-detail:${property.id}`, JSON.stringify(property))
@@ -495,9 +512,29 @@ export default function PropertiesPage() {
     setPropertyModal(null)
   }
 
+  const onImportExternal = async (payload: ImportExternalPropertyDto) => {
+    const property = await importExternalProperty.mutateAsync(payload)
+    const label = payload.import_as === 'internal' ? 'EXCLUSIVA' : 'COLABORACION'
+
+    setNotice({ type: 'success', message: `Anadida a tu cartera como ${label}.` })
+    setImportTarget(null)
+
+    if (searchResult) {
+      setSearchResult((current) =>
+        current
+          ? {
+              ...current,
+              internal: [property, ...current.internal],
+              external: current.external.filter((item) => item.source_url !== payload.source_url)
+            }
+          : current
+      )
+    }
+  }
+
   const onSaveToShortlist = async (values: ShortlistForm) => {
     if (!shortlistTarget) return
-    const isExternal = 'source_url' in shortlistTarget && shortlistTarget.source !== 'internal'
+    const isExternal = !('address' in shortlistTarget)
     const selectedContact = contactsQuery.data?.contacts.find((contact) => contact.id === values.contact_id)
 
     try {
@@ -706,6 +743,7 @@ export default function PropertiesPage() {
               }}
               onSave={(property) => setShortlistTarget(property)}
               onView={(property) => router.push(`/properties/${property.id}`)}
+              matches={inlineMatches}
               properties={internalProperties}
               view={view}
             />
@@ -724,6 +762,8 @@ export default function PropertiesPage() {
             </div>
           ) : null}
           <ExternalCollection
+            matches={inlineMatches}
+            onImport={(property) => setImportTarget(property)}
             onSave={(property) => setShortlistTarget(property)}
             onView={openExternalDetail}
             properties={agencyProperties}
@@ -762,6 +802,15 @@ export default function PropertiesPage() {
           }}
           onSubmit={onSaveToShortlist}
           propertyTitle={shortlistTarget.title}
+        />
+      ) : null}
+
+      {importTarget ? (
+        <ImportPropertyModal
+          isSaving={importExternalProperty.isPending}
+          onClose={() => setImportTarget(null)}
+          onSubmit={onImportExternal}
+          property={importTarget}
         />
       ) : null}
 
@@ -845,7 +894,9 @@ export default function PropertiesPage() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge className="bg-emerald-100 text-emerald-800">EXCLUSIVA</Badge>
+                <Badge className={selectedProperty.source === 'colaboracion' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'}>
+                  {selectedProperty.source === 'colaboracion' ? 'COLABORACION' : 'EXCLUSIVA'}
+                </Badge>
                 <Badge className="bg-slate-900 text-white">{operationLabels[selectedProperty.operation]}</Badge>
                 <Badge>{statusLabels[selectedProperty.status]}</Badge>
               </div>
@@ -939,6 +990,7 @@ const SectionTitle = ({ count, label, tone }: { count: number; label: string; to
 )
 
 const PropertyCollection = ({
+  matches,
   onArchive,
   onEdit,
   onSave,
@@ -946,6 +998,7 @@ const PropertyCollection = ({
   properties,
   view
 }: {
+  matches: Map<string, Contact[]>
   onArchive: (property: Property) => void
   onEdit: (property: Property) => void
   onSave: (property: Property) => void
@@ -966,6 +1019,7 @@ const PropertyCollection = ({
           onEdit={() => onEdit(property)}
           onSave={() => onSave(property)}
           onView={() => onView(property)}
+          matches={matches.get(property.id) ?? []}
           property={property}
         />
       ))}
@@ -974,11 +1028,15 @@ const PropertyCollection = ({
 }
 
 const ExternalCollection = ({
+  matches,
+  onImport,
   onSave,
   onView,
   properties,
   view
 }: {
+  matches: Map<string, Contact[]>
+  onImport: (property: ExternalProperty) => void
   onSave: (property: ExternalProperty) => void
   onView: (property: ExternalProperty) => void
   properties: ExternalProperty[]
@@ -991,7 +1049,14 @@ const ExternalCollection = ({
   return (
     <div className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>
       {properties.map((property) => (
-        <ExternalCard key={property.id} onSave={() => onSave(property)} onView={() => onView(property)} property={property} />
+        <ExternalCard
+          key={property.id}
+          matches={matches.get(property.id) ?? []}
+          onImport={() => onImport(property)}
+          onSave={() => onSave(property)}
+          onView={() => onView(property)}
+          property={property}
+        />
       ))}
     </div>
   )
@@ -1036,12 +1101,14 @@ const PropertyImage = ({
 }
 
 const PropertyCard = ({
+  matches,
   onArchive,
   onEdit,
   onSave,
   onView,
   property
 }: {
+  matches: Contact[]
   onArchive: () => void
   onEdit: () => void
   onSave: () => void
@@ -1051,7 +1118,14 @@ const PropertyCard = ({
   <Card className="flex h-full flex-col overflow-hidden">
     <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
       <PropertyImage alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" src={property.images?.[0]?.url} />
-      <Badge className="absolute left-3 top-3 bg-emerald-600 text-white shadow-sm">EXCLUSIVA</Badge>
+      <Badge
+        className={cn(
+          'absolute left-3 top-3 text-white shadow-sm',
+          property.source === 'colaboracion' ? 'bg-orange-500' : 'bg-emerald-600'
+        )}
+      >
+        {property.source === 'colaboracion' ? 'COLABORACION' : 'EXCLUSIVA'}
+      </Badge>
     </div>
     <div className="flex flex-1 flex-col gap-3 bg-card p-4">
       <div className="min-h-[68px]">
@@ -1060,7 +1134,11 @@ const PropertyCard = ({
       </div>
       <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
       <FeatureRow property={property} />
+      {property.source === 'colaboracion' && property.source_agency_name ? (
+        <p className="text-xs font-medium text-orange-700">{property.source_agency_name}</p>
+      ) : null}
       {property.assigned_to_name ? <p className="text-xs text-muted-foreground">Agente: {property.assigned_to_name}</p> : null}
+      <InlineMatches contacts={matches} />
       <div className="mt-auto grid grid-cols-4 gap-1">
         <Button onClick={onView} size="icon" title="Ver ficha" variant="outline">
           <Eye className="h-4 w-4" />
@@ -1079,7 +1157,19 @@ const PropertyCard = ({
   </Card>
 )
 
-const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView: () => void; property: ExternalProperty }) => {
+const ExternalCard = ({
+  matches,
+  onImport,
+  onSave,
+  onView,
+  property
+}: {
+  matches: Contact[]
+  onImport: () => void
+  onSave: () => void
+  onView: () => void
+  property: ExternalProperty
+}) => {
   const imageUrl = property.image_url || property.images?.[0]?.url
   const title = propertyCardTitle(property.title)
 
@@ -1096,9 +1186,14 @@ const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView
         </div>
         <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
         <FeatureRow property={property} />
-        <div className="mt-auto grid grid-cols-2 gap-2">
+        <InlineMatches contacts={matches} />
+        <div className="mt-auto grid grid-cols-3 gap-2">
           <Button onClick={onView} variant="outline">
             Ver detalle
+          </Button>
+          <Button className="gap-2" onClick={onImport} variant="outline">
+            <Plus className="h-4 w-4" />
+            Cartera
           </Button>
           <Button className="gap-2" onClick={onSave}>
             <Save className="h-4 w-4" />
@@ -1118,6 +1213,56 @@ const FeatureRow = ({ property }: { property: Property | ExternalProperty }) => 
     {property.bathrooms ? <Badge>{property.bathrooms} baños</Badge> : null}
   </div>
 )
+
+const profileLabels: Record<string, string> = {
+  investor_yield: 'Inversor rentabilidad',
+  investor_flip: 'Inversor reforma',
+  first_home: 'Primera vivienda',
+  second_home: 'Segunda residencia',
+  foreign: 'Cliente extranjero',
+  digital_nomad: 'Nomada digital',
+  luxury_standard: 'Lujo estandar',
+  luxury_premium: 'Lujo premium'
+}
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
+
+const matchColors = ['bg-blue-600', 'bg-emerald-600', 'bg-violet-600']
+
+const InlineMatches = ({ contacts }: { contacts: Contact[] }) => {
+  if (!contacts.length) return null
+
+  return (
+    <div className="rounded-md border bg-slate-50 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="text-sm">Clientes:</span>
+        <div className="flex -space-x-2">
+          {contacts.map((contact, index) => (
+            <span
+              className={cn(
+                'grid h-7 w-7 place-items-center rounded-full border-2 border-white text-[11px] font-bold text-white',
+                matchColors[index % matchColors.length]
+              )}
+              key={contact.id}
+              title={`${contact.name} - ${contact.client_profile ? profileLabels[contact.client_profile] : 'sin perfil'}`}
+            >
+              {initials(contact.name)}
+            </span>
+          ))}
+        </div>
+      </div>
+      <p className="mt-1 truncate text-xs text-muted-foreground">
+        {contacts.map((contact) => contact.name.split(' ')[0]).join(' · ')}
+      </p>
+    </div>
+  )
+}
 
 const FeatureGrid = ({ property }: { property: Property }) => (
   <div className="mt-5 grid grid-cols-3 gap-3">
@@ -1229,6 +1374,99 @@ const PropertyModal = ({
     </Card>
   </div>
 )
+
+const ImportPropertyModal = ({
+  isSaving,
+  onClose,
+  onSubmit,
+  property
+}: {
+  isSaving: boolean
+  onClose: () => void
+  onSubmit: (payload: ImportExternalPropertyDto) => Promise<void>
+  property: ExternalProperty
+}) => {
+  const [importAs, setImportAs] = useState<'internal' | 'colaboracion'>('internal')
+  const [notes, setNotes] = useState('')
+  const imageUrl = property.image_url || property.images?.[0]?.url
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
+      <Card className="w-full max-w-xl p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-xl font-semibold">Anadir a mi cartera</h3>
+          <Button onClick={onClose} size="icon" type="button" variant="ghost">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="mb-5 flex gap-3 rounded-md border bg-muted/20 p-3">
+          <div className="h-20 w-24 shrink-0 overflow-hidden rounded-md bg-slate-100">
+            <PropertyImage alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" src={imageUrl} />
+          </div>
+          <div>
+            <p className="line-clamp-2 font-semibold">{propertyCardTitle(property.title)}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatPropertyPrice(property.price, property.operation)} · {property.zone || property.city}
+            </p>
+          </div>
+        </div>
+        <form
+          className="grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void onSubmit({
+              title: propertyCardTitle(property.title),
+              price: property.price,
+              type: property.detected_type ?? property.type,
+              operation: property.operation,
+              city: property.city,
+              zone: property.zone ?? property.city,
+              surface_m2: property.surface_m2 ?? null,
+              rooms: property.rooms ?? null,
+              bathrooms: property.bathrooms ?? null,
+              image_url: imageUrl ?? null,
+              source_url: property.source_url,
+              source_agency_name: property.source_agency_name ?? externalBadgeName(property),
+              source_agency_phone: property.source_agency_phone ?? null,
+              import_as: importAs,
+              notes: notes || null
+            })
+          }}
+        >
+          <div className="grid gap-3">
+            <Label>Guardar como</Label>
+            <label className="flex cursor-pointer gap-3 rounded-md border p-3">
+              <input checked={importAs === 'internal'} onChange={() => setImportAs('internal')} type="radio" />
+              <span>
+                <span className="block font-semibold">EXCLUSIVA</span>
+                <span className="text-sm text-muted-foreground">La gestiono yo directamente</span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer gap-3 rounded-md border p-3">
+              <input checked={importAs === 'colaboracion'} onChange={() => setImportAs('colaboracion')} type="radio" />
+              <span>
+                <span className="block font-semibold">COLABORACION</span>
+                <span className="text-sm text-muted-foreground">Trabajo con la agencia origen</span>
+              </span>
+            </label>
+          </div>
+          <Field label="Notas internas">
+            <Textarea onChange={(event) => setNotes(event.target.value)} value={notes} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button onClick={onClose} type="button" variant="outline">
+              Cancelar
+            </Button>
+            <Button disabled={isSaving} type="submit">
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Anadir a cartera
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  )
+}
 
 const ShortlistModal = ({
   contacts,

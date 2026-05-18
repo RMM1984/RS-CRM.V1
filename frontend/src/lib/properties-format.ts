@@ -7,7 +7,8 @@ export const formatPropertySource = (source?: string | null) => {
     vicens_ash: 'Vicens Ash',
     kyero: 'Kyero',
     sooprema: 'Sooprema',
-    internal: 'Exclusiva'
+    internal: 'Exclusiva',
+    colaboracion: 'Colaboracion'
   }
 
   return labels[source] ?? source.charAt(0).toUpperCase() + source.slice(1)

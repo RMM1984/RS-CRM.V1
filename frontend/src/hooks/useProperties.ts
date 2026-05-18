@@ -3,6 +3,7 @@ import { api } from '@/lib/api'
 import type { ApiResponse } from '@/types/api'
 import type {
   CreatePropertyDto,
+  ImportExternalPropertyDto,
   PropertiesPageData,
   Property,
   PropertyFilters,
@@ -118,6 +119,22 @@ export const useCreateProperty = () => {
       return unwrap(response.data)
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['properties'] })
+    }
+  })
+}
+
+export const useImportExternalProperty = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: ImportExternalPropertyDto) => {
+      const response = await api.post<SuccessResponse<Property>>('/api/properties/import-external', payload)
+
+      return unwrap(response.data)
+    },
+    onSuccess: (property) => {
+      queryClient.setQueryData(['property', property.id], property)
       void queryClient.invalidateQueries({ queryKey: ['properties'] })
     }
   })
