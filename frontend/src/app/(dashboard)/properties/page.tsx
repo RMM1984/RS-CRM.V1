@@ -174,15 +174,6 @@ const normalizeProperty = (values: PropertyForm): CreatePropertyDto => ({
   assigned_to: values.assigned_to || null
 })
 
-const initials = (title: string) =>
-  title
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-
 const propertyCardTitle = (title?: string | null) => {
   const clean = title?.trim() ?? ''
 
@@ -868,7 +859,7 @@ export default function PropertiesPage() {
               </p>
               <div className="mt-5 rounded-md border p-4 text-sm">
                 <p className="text-xs uppercase text-muted-foreground">Agente asignado</p>
-                <p className="mt-1 font-medium">{selectedProperty.assigned_to || '-'}</p>
+                <p className="mt-1 font-medium">{selectedProperty.assigned_to_name || '-'}</p>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button className="gap-2" onClick={() => setShortlistTarget(selectedProperty)}>
@@ -1005,6 +996,44 @@ const ExternalCollection = ({
   )
 }
 
+const PropertyImagePlaceholder = ({ tone = 'slate' }: { tone?: 'slate' | 'blue' }) => (
+  <div className={cn(
+    'grid h-full w-full place-items-center',
+    tone === 'blue' ? 'bg-blue-50 text-blue-500' : 'bg-slate-100 text-slate-500'
+  )}>
+    <Home className="h-14 w-14" />
+  </div>
+)
+
+const PropertyImage = ({
+  alt,
+  className,
+  src,
+  tone = 'slate'
+}: {
+  alt: string
+  className?: string
+  src?: string | null
+  tone?: 'slate' | 'blue'
+}) => {
+  const [hasError, setHasError] = useState(false)
+  const imageSrc = src?.trim()
+
+  if (!imageSrc || hasError) {
+    return <PropertyImagePlaceholder tone={tone} />
+  }
+
+  return (
+    <img
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={() => setHasError(true)}
+      src={imageSrc}
+    />
+  )
+}
+
 const PropertyCard = ({
   onArchive,
   onEdit,
@@ -1020,13 +1049,7 @@ const PropertyCard = ({
 }) => (
   <Card className="flex h-full flex-col overflow-hidden">
     <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-slate-100">
-      {property.images?.[0]?.url ? (
-        <img alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" loading="lazy" src={property.images[0].url} />
-      ) : (
-        <div className="grid h-16 w-16 place-items-center rounded-full bg-slate-900 text-lg font-bold text-white">
-          {initials(propertyCardTitle(property.title))}
-        </div>
-      )}
+      <PropertyImage alt={propertyCardTitle(property.title)} className="h-full w-full object-cover" src={property.images?.[0]?.url} />
       <Badge className="absolute left-3 top-3 bg-emerald-600 text-white shadow-sm">EXCLUSIVA</Badge>
     </div>
     <div className="flex flex-1 flex-col gap-3 bg-card p-4">
@@ -1036,7 +1059,7 @@ const PropertyCard = ({
       </div>
       <p className="text-lg font-semibold text-foreground">{formatPropertyPrice(property.price, property.operation)}</p>
       <FeatureRow property={property} />
-      <p className="text-xs text-muted-foreground">Agente: {property.assigned_to || '-'}</p>
+      {property.assigned_to_name ? <p className="text-xs text-muted-foreground">Agente: {property.assigned_to_name}</p> : null}
       <div className="mt-auto grid grid-cols-4 gap-1">
         <Button onClick={onView} size="icon" title="Ver ficha" variant="outline">
           <Eye className="h-4 w-4" />
@@ -1062,11 +1085,7 @@ const ExternalCard = ({ onSave, onView, property }: { onSave: () => void; onView
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="relative grid h-48 shrink-0 place-items-center overflow-hidden bg-blue-50">
-        {imageUrl ? (
-          <img alt={title} className="h-full w-full object-cover" loading="lazy" src={imageUrl} />
-        ) : (
-          <Home className="h-14 w-14 text-blue-500" />
-        )}
+        <PropertyImage alt={title} className="h-full w-full object-cover" src={imageUrl} tone="blue" />
         <Badge className="absolute left-3 top-3 w-fit bg-blue-600 text-white shadow-sm">AGENCIA {externalBadgeName(property)}</Badge>
       </div>
       <div className="flex flex-1 flex-col gap-3 bg-card p-4">
@@ -1095,7 +1114,7 @@ const FeatureRow = ({ property }: { property: Property | ExternalProperty }) => 
     <Badge>{property.type}</Badge>
     {property.surface_m2 ? <Badge>{property.surface_m2} m2</Badge> : null}
     {property.rooms ? <Badge>{property.rooms} hab</Badge> : null}
-    {property.bathrooms ? <Badge>{property.bathrooms} banos</Badge> : null}
+    {property.bathrooms ? <Badge>{property.bathrooms} baños</Badge> : null}
   </div>
 )
 

@@ -476,7 +476,7 @@ export function passesHardFilters(property: SearchableProperty, parsed: ParsedQu
 
   if (parsed.type && propertyType !== parsed.type) return false
   if (parsed.price_max !== null && price !== null && price > parsed.price_max) return false
-  if (parsed.rooms_min !== null && property.rooms !== null && property.rooms !== undefined && property.rooms < parsed.rooms_min) return false
+  if (parsed.rooms_min !== null && (property.rooms === null || property.rooms === undefined || property.rooms < parsed.rooms_min)) return false
   if (parsed.bathrooms_min !== null && property.bathrooms !== null && property.bathrooms !== undefined && property.bathrooms < parsed.bathrooms_min) return false
   if (parsed.surface_min !== null && surface !== null && surface < parsed.surface_min) return false
 

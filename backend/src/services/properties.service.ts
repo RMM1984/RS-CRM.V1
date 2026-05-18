@@ -96,6 +96,11 @@ const propertySelect = `
 
 const propertyListSelect = `
   ${propertySelect},
+  (
+    SELECT u.full_name
+    FROM public.users u
+    WHERE u.id = properties.assigned_to
+  ) AS assigned_to_name,
   COALESCE(
     (
       SELECT json_agg(pi ORDER BY pi.created_at)
@@ -185,7 +190,17 @@ export const createProperty = async (db: PoolClient, data: PropertyInput, user: 
 }
 
 export const getProperty = async (db: PoolClient, id: string) => {
-  const property = await db.query(`SELECT ${propertySelect} FROM properties WHERE id = $1 AND active = true`, [id])
+  const property = await db.query(
+    `SELECT ${propertySelect},
+      (
+        SELECT u.full_name
+        FROM public.users u
+        WHERE u.id = properties.assigned_to
+      ) AS assigned_to_name
+     FROM properties
+     WHERE properties.id = $1 AND active = true`,
+    [id]
+  )
   if (!property.rows[0]) return null
   const images = await db.query('SELECT id, url, path, created_at FROM property_images WHERE property_id = $1 ORDER BY created_at', [id])
   return { ...property.rows[0], images: images.rows }

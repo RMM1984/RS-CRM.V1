@@ -27,6 +27,7 @@ export type Property = {
   status: PropertyStatus
   description: string | null
   assigned_to: string | null
+  assigned_to_name?: string | null
   source: PropertySource
   source_url: string | null
   source_agency_name: string | null

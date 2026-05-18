@@ -37,7 +37,7 @@ const operationSelect = `
   o.closed_at,
   o.created_at,
   o.updated_at,
-  c.full_name AS contact_name,
+  COALESCE(c.full_name, 'Contacto eliminado') AS contact_name,
   c.phone AS contact_phone,
   c.email AS contact_email,
   p.title AS property_title,
@@ -52,7 +52,7 @@ const queryOperations = async (db: PoolClient, where: string, values: unknown[])
   const { rows } = await db.query(
     `SELECT ${operationSelect}
      FROM operations o
-     JOIN contacts c ON c.id = o.contact_id
+     LEFT JOIN contacts c ON c.id = o.contact_id
      LEFT JOIN properties p ON p.id = o.property_id
      LEFT JOIN public.users u ON u.id = o.agent_id
      ${where}

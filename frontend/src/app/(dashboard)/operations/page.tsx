@@ -119,6 +119,8 @@ const initials = (name?: string | null) =>
     .join('')
     .toUpperCase()
 
+const isDeletedContact = (operation: Operation) => operation.contact_name === 'Contacto eliminado'
+
 const asNumber = (value: unknown) => {
   if (value === '' || value === undefined || value === null) return null
   return Number(value)
@@ -504,7 +506,7 @@ const OperationCard = ({
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
           <p className="flex items-center gap-2">
             <UserRound className="h-4 w-4" />
-            {operation.contact_name}
+            <span className={isDeletedContact(operation) ? 'text-slate-400' : undefined}>{operation.contact_name}</span>
           </p>
           {Number(operation.value) > 0 ? (
             <p className="flex items-center gap-2">
@@ -586,7 +588,7 @@ const OperationsTable = ({
         <tbody>
           {operations.map((operation) => (
             <tr key={operation.id} className="border-t">
-              <td className="px-4 py-3 font-medium">{operation.contact_name}</td>
+              <td className={`px-4 py-3 font-medium ${isDeletedContact(operation) ? 'text-slate-400' : ''}`}>{operation.contact_name}</td>
               <td className="px-4 py-3">{operation.property_title || '-'}</td>
               <td className="px-4 py-3">{typeLabels[operation.type]}</td>
               <td className="px-4 py-3">

@@ -299,7 +299,7 @@ export default function PropertyDetailPage() {
               <div>
                 <h2 className="flex items-center gap-2 font-semibold">
                   <UserRound className="h-5 w-5 text-primary" />
-                  Clientes que podrian estar interesados
+                  Clientes que podrían estar interesados
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Top 5 calculado con presupuesto, zonas y necesidades del perfil comprador.
@@ -308,7 +308,7 @@ export default function PropertyDetailPage() {
               {matchesQuery.isLoading ? <div className="h-28 animate-pulse rounded-md bg-muted" /> : null}
               {!matchesQuery.isLoading && !matchesQuery.data?.length ? (
                 <p className="rounded-md border p-4 text-sm text-muted-foreground">
-                  Todavia no hay clientes con perfil suficiente para esta propiedad.
+                  Añade perfiles a tus contactos para ver sugerencias aquí.
                 </p>
               ) : null}
               {matchesQuery.data?.map((match, index) => (
