@@ -5,9 +5,6 @@ export const setSchema = async (req: Request, res: Response, next: NextFunction)
   try {
     const schemaName = req.user?.schema_name
 
-    console.log('[setSchema] user:', req.user)
-    console.log('[setSchema] schema_name:', schemaName)
-
     if (!schemaName) {
       return res.status(401).json({
         success: false,
