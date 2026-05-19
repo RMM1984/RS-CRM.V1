@@ -13,7 +13,7 @@ export default function DashboardLayout({
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Header />
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 px-4 py-5 pb-24 md:p-6">{children}</main>
         </div>
       </div>
     </ProtectedRoute>

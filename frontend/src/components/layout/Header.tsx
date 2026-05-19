@@ -11,7 +11,7 @@ export const Header = () => {
   const { user, logout } = useAuth()
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-6">
+    <header className="flex h-14 items-center justify-between border-b bg-background px-4 md:h-16 md:px-6">
       <div aria-hidden="true" />
       <div className="flex items-center gap-3">
         <Avatar>
