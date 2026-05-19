@@ -405,7 +405,7 @@ export default function PropertyDetailPage() {
           <Card className="grid gap-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold">
               <Building2 className="h-5 w-5 text-primary" />
-              {detailAgencyName(property) || 'RS-CRM'}
+              {detailAgencyName(property) || 'SKOPI'}
             </h2>
             <p className="text-sm text-muted-foreground">Ref: {refValue(property)}</p>
             <Button asChild className="gap-2">

@@ -109,7 +109,7 @@ export const ensureVisitsSchema = async (db: PoolClient) => {
     ALTER TABLE visits ALTER COLUMN property_id DROP NOT NULL;
     ALTER TABLE visits ALTER COLUMN starts_at DROP NOT NULL;
     UPDATE visits SET duration_min = 60 WHERE duration_min IS NULL;
-    UPDATE visits SET ical_uid = id::text || '@rs-crm.com' WHERE ical_uid IS NULL;
+    UPDATE visits SET ical_uid = id::text || '@skopi.app' WHERE ical_uid IS NULL;
     CREATE INDEX IF NOT EXISTS visits_scheduled_at_idx ON visits(scheduled_at);
     CREATE INDEX IF NOT EXISTS visits_agent_id_idx ON visits(agent_id);
     CREATE INDEX IF NOT EXISTS visits_status_idx ON visits(status);
@@ -241,7 +241,7 @@ export const createVisit = async (db: PoolClient, data: VisitInput, user: AuthUs
     ]
   )
 
-  await db.query("UPDATE visits SET ical_uid = id::text || '@rs-crm.com' WHERE id = $1", [rows[0].id])
+  await db.query("UPDATE visits SET ical_uid = id::text || '@skopi.app' WHERE id = $1", [rows[0].id])
   return getVisit(db, rows[0].id, user)
 }
 
@@ -360,9 +360,9 @@ export const buildIcsForToken = async (agentToken: string) => {
     const lines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//RS-CRM//ES',
+      'PRODID:-//SKOPI//ES',
       'CALSCALE:GREGORIAN',
-      'X-WR-CALNAME:RS-CRM - Mis Visitas',
+      'X-WR-CALNAME:SKOPI - Mis Visitas',
       'X-WR-TIMEZONE:Europe/Madrid'
     ]
 
@@ -377,7 +377,7 @@ export const buildIcsForToken = async (agentToken: string) => {
 
       lines.push(
         'BEGIN:VEVENT',
-        `UID:${escapeIcs(visit.ical_uid ?? `${visit.id}@rs-crm.com`)}`,
+        `UID:${escapeIcs(visit.ical_uid ?? `${visit.id}@skopi.app`)}`,
         `DTSTAMP:${now}`,
         `DTSTART:${formatIcsDate(start)}`,
         `DTEND:${formatIcsDate(end)}`,

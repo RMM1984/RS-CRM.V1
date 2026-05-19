@@ -176,7 +176,7 @@ const main = async () => {
       )
 
       await client.query(
-        "UPDATE tenant_rs_crm.visits SET ical_uid = id::text || '@rs-crm.com' WHERE id = $1",
+        "UPDATE tenant_rs_crm.visits SET ical_uid = id::text || '@skopi.app' WHERE id = $1",
         [result.rows[0].id]
       )
       inserted += 1

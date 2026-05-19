@@ -66,10 +66,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-md bg-primary text-sm font-black text-primary-foreground">
-            RS
+            SK
           </div>
           <div>
-            <CardTitle>RS-CRM</CardTitle>
+            <CardTitle>SKOPI</CardTitle>
             <CardDescription>Acceso al CRM inmobiliario</CardDescription>
           </div>
         </CardHeader>

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { pool, quoteIdentifier } from '../config/db'
 
 const seedEnvSchema = z.object({
-  SEED_TENANT_NAME: z.string().min(2).default('RS CRM'),
+  SEED_TENANT_NAME: z.string().min(2).default('SKOPI'),
   SEED_TENANT_SLUG: z.string().min(2).regex(/^[a-z0-9-]+$/).default('rs-crm'),
   SEED_TENANT_PLAN: z.enum(['standard', 'premium']).default('premium'),
   SEED_ADMIN_EMAIL: z.string().email(),

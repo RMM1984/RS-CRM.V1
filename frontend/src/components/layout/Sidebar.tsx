@@ -35,11 +35,11 @@ export const Sidebar = () => {
     <aside className="flex min-h-screen w-72 flex-col border-r bg-card px-4 py-5">
       <Link className="mb-8 flex items-center gap-3 px-2" href="/dashboard">
         <span className="grid h-10 w-10 place-items-center rounded-md bg-primary text-sm font-black text-primary-foreground">
-          RS
+          SK
         </span>
         <span>
-          <span className="block text-lg font-bold leading-none">RS-CRM</span>
-          <span className="text-xs text-muted-foreground">Real Estate SaaS</span>
+          <span className="block text-lg font-bold leading-none">SKOPI</span>
+          <span className="text-xs text-muted-foreground">Real Estate CRM</span>
         </span>
       </Link>
 

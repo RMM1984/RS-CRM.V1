@@ -110,7 +110,7 @@ export default function DashboardPage() {
   if (isEmpty) {
     return (
       <div className="rounded-lg border bg-white p-10 text-center shadow-sm">
-        <h1 className="text-3xl font-semibold">Bienvenido a RS-CRM</h1>
+        <h1 className="text-3xl font-semibold">Bienvenido a SKOPI</h1>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
           Empieza creando tus primeros datos para activar el panel operativo.
         </p>

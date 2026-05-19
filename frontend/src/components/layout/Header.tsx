@@ -12,9 +12,7 @@ export const Header = () => {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-      <div>
-        <p className="text-lg font-semibold">{user?.schema_name ?? 'tenant'}</p>
-      </div>
+      <div aria-hidden="true" />
       <div className="flex items-center gap-3">
         <Avatar>
           <AvatarFallback>{initials(user?.email)}</AvatarFallback>
